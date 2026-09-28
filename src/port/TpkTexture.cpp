@@ -231,6 +231,10 @@ bool ValidateEncodedSize(const TpkTextureMetadata &t,
         required =
             static_cast<std::size_t>(t.width) *
             t.height * 4u;
+    } else if (t.format == kP8) {
+        required =
+            static_cast<std::size_t>(t.width) *
+            t.height;
     } else if (t.format == kDxt1 ||
                t.format == kDxt3 ||
                t.format == kDxt5) {
@@ -260,6 +264,8 @@ bool ValidateEncodedSize(const TpkTextureMetadata &t,
 vita2d_texture *CreateTextureFromEncoded(
     const std::uint8_t *src,
     std::size_t src_size,
+    const std::uint8_t *palette,
+    std::size_t palette_size,
     const TpkTextureMetadata &t,
     TpkTextureLoadResult *result) {
 
@@ -268,8 +274,9 @@ vita2d_texture *CreateTextureFromEncoded(
         return nullptr;
     }
 
-    if (t.format == kP8) {
-        SetResult(result, TpkTextureLoadResult::UnsupportedFormat);
+    if (t.format == kP8 &&
+        (!palette || palette_size < 256u * 4u)) {
+        SetResult(result, TpkTextureLoadResult::InvalidMetadata);
         return nullptr;
     }
 
@@ -278,6 +285,7 @@ vita2d_texture *CreateTextureFromEncoded(
     if (!ValidateEncodedSize(t, required)) {
         const bool known_format =
             t.format == kArgb32 ||
+            t.format == kP8 ||
             t.format == kDxt1 ||
             t.format == kDxt3 ||
             t.format == kDxt5;
@@ -337,6 +345,33 @@ vita2d_texture *CreateTextureFromEncoded(
                 drow[x * 4u + 3u] = a;
             }
         }
+    } else if (t.format == kP8) {
+        // Retail PC MW stores a 256-entry A8R8G8B8 palette in the same
+        // streamed data block. The original PC renderer expands every
+        // 8-bit index through that 1024-byte table before creating an
+        // A8R8G8B8 texture. Mirror that path and swizzle BGRA -> RGBA.
+        for (std::uint32_t y = 0; y < t.height; ++y) {
+            std::uint8_t *drow =
+                dst +
+                static_cast<std::size_t>(y) *
+                    stride;
+
+            for (std::uint32_t x = 0; x < t.width; ++x) {
+                const std::uint8_t index =
+                    src[static_cast<std::size_t>(y) *
+                            t.width +
+                        x];
+
+                const std::uint8_t *p =
+                    palette +
+                    static_cast<std::size_t>(index) * 4u;
+
+                drow[x * 4u + 0u] = p[2];
+                drow[x * 4u + 1u] = p[1];
+                drow[x * 4u + 2u] = p[0];
+                drow[x * 4u + 3u] = p[3];
+            }
+        }
     } else {
         ok = DecodeDxt(
             src,
@@ -368,7 +403,7 @@ const char *DescribeTpkTextureLoadResult(
         case TpkTextureLoadResult::InvalidMetadata:
             return "invalid metadata";
         case TpkTextureLoadResult::UnsupportedFormat:
-            return "unsupported format (P8 palette unresolved)";
+            return "unsupported format";
         case TpkTextureLoadResult::InvalidSize:
             return "invalid texture size";
         case TpkTextureLoadResult::IoError:
@@ -400,6 +435,15 @@ vita2d_texture *LoadTpkTextureBaseLevel(
             t.base_size >
         meta.data_blob_size) {
         SetResult(result, TpkTextureLoadResult::InvalidSize);
+        return nullptr;
+    }
+
+    if (t.format == kP8 &&
+        (t.palette_size < 256u * 4u ||
+         static_cast<std::uint64_t>(t.palette_offset) +
+                 256u * 4u >
+             meta.data_blob_size)) {
+        SetResult(result, TpkTextureLoadResult::InvalidMetadata);
         return nullptr;
     }
 
@@ -439,12 +483,41 @@ vita2d_texture *LoadTpkTextureBaseLevel(
         return nullptr;
     }
 
+    std::uint8_t palette[256u * 4u]{};
+    const std::uint8_t *palette_ptr = nullptr;
+    std::size_t palette_size = 0;
+
+    if (t.format == kP8) {
+        const std::uint32_t palette_absolute =
+            meta.data_blob_offset + t.palette_offset;
+
+        if (std::fseek(
+                f,
+                static_cast<long>(palette_absolute),
+                SEEK_SET) != 0 ||
+            std::fread(
+                palette,
+                1,
+                sizeof(palette),
+                f) != sizeof(palette)) {
+            std::free(src);
+            std::fclose(f);
+            SetResult(result, TpkTextureLoadResult::IoError);
+            return nullptr;
+        }
+
+        palette_ptr = palette;
+        palette_size = sizeof(palette);
+    }
+
     std::fclose(f);
 
     vita2d_texture *texture =
         CreateTextureFromEncoded(
             src,
             t.base_size,
+            palette_ptr,
+            palette_size,
             t,
             result);
 
@@ -486,9 +559,37 @@ vita2d_texture *LoadTpkTextureBaseLevelMemory(
     const auto *data =
         static_cast<const std::uint8_t *>(data_ptr);
 
+    const std::uint8_t *palette = nullptr;
+    std::size_t palette_size = 0;
+
+    if (t.format == kP8) {
+        if (t.palette_size < 256u * 4u) {
+            SetResult(result, TpkTextureLoadResult::InvalidMetadata);
+            return nullptr;
+        }
+
+        const std::uint64_t palette_absolute =
+            static_cast<std::uint64_t>(meta.data_blob_offset) +
+            t.palette_offset;
+
+        const std::uint64_t palette_end =
+            palette_absolute + 256u * 4u;
+
+        if (palette_absolute > data_size ||
+            palette_end > data_size) {
+            SetResult(result, TpkTextureLoadResult::InvalidSize);
+            return nullptr;
+        }
+
+        palette = data + palette_absolute;
+        palette_size = 256u * 4u;
+    }
+
     return CreateTextureFromEncoded(
         data + absolute_offset,
         t.base_size,
+        palette,
+        palette_size,
         t,
         result);
 }
