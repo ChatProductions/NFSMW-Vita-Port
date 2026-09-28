@@ -1,6 +1,7 @@
 #include "decomp/bCrc32.h"
 #include "port/BundleProbe.h"
 #include "port/JdlzFile.h"
+#include "port/GeometryFile.h"
 #include "port/TpkInventory.h"
 #include "port/TpkMetadata.h"
 #include "port/TpkTexture.h"
@@ -12,6 +13,7 @@
 #include <vita2d.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -19,6 +21,8 @@ static constexpr unsigned int kExpected = 0x66F9D7D0u;
 static constexpr const char *kProbe = "NFSMW-Vita-Port";
 static constexpr const char *kGlobalAPath = "ux0:data/nfsmw/GLOBALA.BUN";
 static constexpr const char *kGlobalBPath = "ux0:data/nfsmw/GlobalB.lzc";
+static constexpr const char *kGeometryPath =
+    "ux0:data/nfsmw/CARS/COBALTSS/GEOMETRY.BIN";
 
 static void Draw(vita2d_pgf *font,
                  int x,
@@ -155,6 +159,54 @@ static float FitScale(unsigned width,
     return std::min(max_scale, std::min(sx, sy));
 }
 
+
+struct ScreenPoint {
+    float x = 0.0f;
+    float y = 0.0f;
+    bool visible = false;
+};
+
+static ScreenPoint ProjectGeometryVertex(
+    const GeometryVertex &v,
+    const float center[3],
+    float inv_extent,
+    float cos_yaw,
+    float sin_yaw,
+    float cos_pitch,
+    float sin_pitch,
+    float zoom) {
+
+    const float x = (v.x - center[0]) * inv_extent;
+    const float y = (v.y - center[1]) * inv_extent;
+    const float z = (v.z - center[2]) * inv_extent;
+
+    const float rx =
+        cos_yaw * x - sin_yaw * y;
+    const float ry =
+        sin_yaw * x + cos_yaw * y;
+
+    const float py =
+        cos_pitch * ry - sin_pitch * z;
+    const float pz =
+        sin_pitch * ry + cos_pitch * z;
+
+    const float depth = 3.4f - py;
+
+    if (depth <= 0.25f)
+        return {};
+
+    const float focal = 560.0f * zoom / depth;
+
+    ScreenPoint out{};
+    out.x = 480.0f + rx * focal;
+    out.y = 292.0f - pz * focal;
+    out.visible =
+        out.x > -100.0f && out.x < 1060.0f &&
+        out.y > 70.0f && out.y < 520.0f;
+
+    return out;
+}
+
 int main() {
     // Keep generated diagnostics with the game data instead of scattering
     // them across ux0:data.
@@ -207,6 +259,27 @@ int main() {
     std::size_t global_b_texture_index = 0;
 
     TpkMetadata global_b_meta{};
+
+    const GeometryIndex geometry_index =
+        ReadGeometryIndex(kGeometryPath);
+
+    std::size_t geometry_selected = 0;
+    GeometryMesh geometry_mesh{};
+
+    if (geometry_index.valid &&
+        geometry_index.displayed_objects > 0) {
+        geometry_mesh =
+            LoadGeometryObject(
+                kGeometryPath,
+                geometry_index,
+                geometry_selected);
+    }
+
+    WriteGeometryLog(
+        kGeometryPath,
+        geometry_index,
+        geometry_selected,
+        geometry_mesh);
 
     if (global_b_tpk.valid &&
         global_b_tpk.displayed_packs > 0) {
@@ -270,6 +343,9 @@ int main() {
 
     std::size_t global_a_selected = 0;
     std::size_t pack_scroll = 0;
+    float geometry_yaw = 0.85f;
+    float geometry_pitch = -0.35f;
+    float geometry_zoom = 1.0f;
     unsigned int previous_buttons = 0;
     unsigned int page = 0;
     bool running = true;
@@ -322,6 +398,31 @@ int main() {
                 &global_b_texture_result);
     };
 
+
+    auto reload_geometry = [&]() {
+        geometry_mesh = {};
+
+        if (!geometry_index.valid ||
+            geometry_index.displayed_objects == 0)
+            return;
+
+        if (geometry_selected >=
+            geometry_index.displayed_objects)
+            geometry_selected = 0;
+
+        geometry_mesh =
+            LoadGeometryObject(
+                kGeometryPath,
+                geometry_index,
+                geometry_selected);
+
+        WriteGeometryLog(
+            kGeometryPath,
+            geometry_index,
+            geometry_selected,
+            geometry_mesh);
+    };
+
     while (running) {
         SceCtrlData pad{};
         sceCtrlPeekBufferPositive(0, &pad, 1);
@@ -335,7 +436,7 @@ int main() {
             running = false;
 
         if (pressed & SCE_CTRL_TRIANGLE)
-            page = (page + 1u) % 4u;
+            page = (page + 1u) % 5u;
 
         if (page == 0 &&
             tpk.displayed_textures > 0) {
@@ -423,6 +524,75 @@ int main() {
                 reload_global_b_texture();
         }
 
+
+        if (page == 4 &&
+            geometry_index.valid &&
+            geometry_index.displayed_objects > 0) {
+            bool reload = false;
+
+            if (pressed & SCE_CTRL_RIGHT) {
+                geometry_selected =
+                    (geometry_selected + 1) %
+                    geometry_index.displayed_objects;
+                reload = true;
+            }
+
+            if (pressed & SCE_CTRL_LEFT) {
+                geometry_selected =
+                    (geometry_selected +
+                     geometry_index.displayed_objects - 1) %
+                    geometry_index.displayed_objects;
+                reload = true;
+            }
+
+            if (pressed & SCE_CTRL_DOWN) {
+                geometry_selected =
+                    std::min(
+                        geometry_selected + 10,
+                        geometry_index.displayed_objects - 1);
+                reload = true;
+            }
+
+            if (pressed & SCE_CTRL_UP) {
+                geometry_selected =
+                    geometry_selected >= 10
+                        ? geometry_selected - 10
+                        : 0;
+                reload = true;
+            }
+
+            if (reload)
+                reload_geometry();
+
+            const int analog_x =
+                static_cast<int>(pad.lx) - 128;
+            const int analog_y =
+                static_cast<int>(pad.ly) - 128;
+
+            if (std::abs(analog_x) > 18)
+                geometry_yaw +=
+                    static_cast<float>(analog_x) /
+                    128.0f * 0.035f;
+
+            if (std::abs(analog_y) > 18)
+                geometry_pitch +=
+                    static_cast<float>(analog_y) /
+                    128.0f * 0.028f;
+
+            geometry_pitch =
+                std::max(
+                    -1.20f,
+                    std::min(1.20f, geometry_pitch));
+
+            if (pad.buttons & SCE_CTRL_RTRIGGER)
+                geometry_zoom =
+                    std::min(2.4f, geometry_zoom * 1.018f);
+
+            if (pad.buttons & SCE_CTRL_LTRIGGER)
+                geometry_zoom =
+                    std::max(0.45f, geometry_zoom / 1.018f);
+        }
+
         vita2d_start_drawing();
         vita2d_clear_screen();
 
@@ -438,13 +608,13 @@ int main() {
             RGBA8(185, 185, 185, 255);
 
         Draw(font, 28, 38, white, 1.0f,
-             "NFSMW Vita Port - Milestone 8");
+             "NFSMW Vita Port - Milestone 9");
 
         char line[224];
 
         if (page == 0) {
             Draw(font, 720, 38, gray, 0.58f,
-                 "1/4 GLOBALA textures");
+                 "1/5 GLOBALA textures");
 
             if (!global_a.found) {
                 Draw(font, 28, 95, amber, 0.88f,
@@ -540,7 +710,7 @@ int main() {
             }
         } else if (page == 1) {
             Draw(font, 720, 38, gray, 0.58f,
-                 "2/4 GlobalB JDLZ");
+                 "2/5 GlobalB JDLZ");
 
             if (!global_b_jdlz.found) {
                 Draw(font, 28, 92, amber, 0.85f,
@@ -607,7 +777,7 @@ int main() {
             }
         } else if (page == 2) {
             Draw(font, 720, 38, gray, 0.58f,
-                 "3/4 GlobalB TPK index");
+                 "3/5 GlobalB TPK index");
 
             if (!global_b_tpk.valid) {
                 Draw(font, 28, 92, red, 0.82f,
@@ -661,9 +831,9 @@ int main() {
                     y += 54;
                 }
             }
-        } else {
+        } else if (page == 3) {
             Draw(font, 720, 38, gray, 0.58f,
-                 "4/4 GlobalB texture browser");
+                 "4/5 GlobalB texture browser");
 
             if (!global_b_tpk.valid ||
                 global_b_tpk.displayed_packs == 0 ||
@@ -767,17 +937,191 @@ int main() {
                 Draw(font, 28, 490, gray, 0.55f,
                      "UP/DOWN pack | LEFT/RIGHT or L/R texture");
             }
+
+        } else {
+            Draw(font, 720, 38, gray, 0.58f,
+                 "5/5 native geometry");
+
+            if (!geometry_index.found) {
+                Draw(font, 28, 92, amber, 0.78f,
+                     "COBALTSS GEOMETRY.BIN not found");
+                Draw(font, 28, 123, gray, 0.53f,
+                     "Expected: ux0:data/nfsmw/CARS/COBALTSS/GEOMETRY.BIN");
+            } else if (!geometry_index.valid) {
+                std::snprintf(
+                    line,
+                    sizeof(line),
+                    "Geometry index failed: %s",
+                    geometry_index.error);
+                Draw(font, 28, 92, red, 0.68f, line);
+            } else if (!geometry_mesh.valid) {
+                std::snprintf(
+                    line,
+                    sizeof(line),
+                    "Solid %u/%u failed: %s",
+                    static_cast<unsigned>(geometry_selected + 1),
+                    static_cast<unsigned>(
+                        geometry_index.displayed_objects),
+                    geometry_mesh.error);
+                Draw(font, 28, 92, red, 0.62f, line);
+            } else {
+                std::snprintf(
+                    line,
+                    sizeof(line),
+                    "%u/%u  %s",
+                    static_cast<unsigned>(geometry_selected + 1),
+                    static_cast<unsigned>(
+                        geometry_index.displayed_objects),
+                    geometry_mesh.name);
+                Draw(font, 28, 73, green, 0.66f, line);
+
+                std::snprintf(
+                    line,
+                    sizeof(line),
+                    "%u vertices | %u triangles | %u groups",
+                    static_cast<unsigned>(
+                        geometry_mesh.vertices.size()),
+                    geometry_mesh.num_tris,
+                    geometry_mesh.group_count);
+                Draw(font, 28, 98, gray, 0.55f, line);
+
+                float center[3]{};
+                float max_extent = 0.001f;
+
+                for (int axis = 0; axis < 3; ++axis) {
+                    center[axis] =
+                        (geometry_mesh.bbox_min[axis] +
+                         geometry_mesh.bbox_max[axis]) *
+                        0.5f;
+
+                    max_extent =
+                        std::max(
+                            max_extent,
+                            (geometry_mesh.bbox_max[axis] -
+                             geometry_mesh.bbox_min[axis]) *
+                                0.5f);
+                }
+
+                const float inv_extent =
+                    1.0f / max_extent;
+
+                const float cos_yaw =
+                    std::cos(geometry_yaw);
+                const float sin_yaw =
+                    std::sin(geometry_yaw);
+                const float cos_pitch =
+                    std::cos(geometry_pitch);
+                const float sin_pitch =
+                    std::sin(geometry_pitch);
+
+                const std::size_t total_triangles =
+                    geometry_mesh.indices.size() / 3u;
+
+                constexpr std::size_t kMaxWireTriangles = 1800;
+
+                const std::size_t step =
+                    std::max<std::size_t>(
+                        1,
+                        (total_triangles +
+                         kMaxWireTriangles - 1) /
+                            kMaxWireTriangles);
+
+                std::size_t drawn = 0;
+
+                for (std::size_t tri = 0;
+                     tri < total_triangles;
+                     tri += step) {
+                    const std::uint32_t ia =
+                        geometry_mesh.indices[tri * 3u + 0u];
+                    const std::uint32_t ib =
+                        geometry_mesh.indices[tri * 3u + 1u];
+                    const std::uint32_t ic =
+                        geometry_mesh.indices[tri * 3u + 2u];
+
+                    if (ia >= geometry_mesh.vertices.size() ||
+                        ib >= geometry_mesh.vertices.size() ||
+                        ic >= geometry_mesh.vertices.size())
+                        continue;
+
+                    const ScreenPoint a =
+                        ProjectGeometryVertex(
+                            geometry_mesh.vertices[ia],
+                            center,
+                            inv_extent,
+                            cos_yaw,
+                            sin_yaw,
+                            cos_pitch,
+                            sin_pitch,
+                            geometry_zoom);
+
+                    const ScreenPoint b =
+                        ProjectGeometryVertex(
+                            geometry_mesh.vertices[ib],
+                            center,
+                            inv_extent,
+                            cos_yaw,
+                            sin_yaw,
+                            cos_pitch,
+                            sin_pitch,
+                            geometry_zoom);
+
+                    const ScreenPoint d =
+                        ProjectGeometryVertex(
+                            geometry_mesh.vertices[ic],
+                            center,
+                            inv_extent,
+                            cos_yaw,
+                            sin_yaw,
+                            cos_pitch,
+                            sin_pitch,
+                            geometry_zoom);
+
+                    if (a.visible && b.visible)
+                        vita2d_draw_line(
+                            a.x, a.y, b.x, b.y, white);
+                    if (b.visible && d.visible)
+                        vita2d_draw_line(
+                            b.x, b.y, d.x, d.y, white);
+                    if (d.visible && a.visible)
+                        vita2d_draw_line(
+                            d.x, d.y, a.x, a.y, white);
+
+                    ++drawn;
+                }
+
+                std::snprintf(
+                    line,
+                    sizeof(line),
+                    "wire tris %u/%u | bbox %.2f %.2f %.2f",
+                    static_cast<unsigned>(drawn),
+                    static_cast<unsigned>(total_triangles),
+                    geometry_mesh.bbox_max[0] -
+                        geometry_mesh.bbox_min[0],
+                    geometry_mesh.bbox_max[1] -
+                        geometry_mesh.bbox_min[1],
+                    geometry_mesh.bbox_max[2] -
+                        geometry_mesh.bbox_min[2]);
+
+                Draw(font, 28, 468, gray, 0.52f, line);
+
+                Draw(font, 28, 492, gray, 0.50f,
+                     "ANALOG rotate | L/R zoom | D-PAD solid (UP/DOWN +/-10)");
+            }
+
         }
 
         std::snprintf(
             line,
             sizeof(line),
-            "CRC %s | GLOBALA %s | GlobalB %s | TPK %s",
+            "CRC %s | GA %s | GB %s | TPK %s | GEO %s",
             crc_pass ? "PASS" : "FAIL",
             global_a.valid ? "VALID" : "INVALID",
             global_b.valid ? "VALID" :
                 (global_b_jdlz.found ? "INVALID" : "N/A"),
-            global_b_tpk.valid ? "VALID" : "N/A");
+            global_b_tpk.valid ? "VALID" : "N/A",
+            geometry_index.valid
+                ? (geometry_mesh.valid ? "VALID" : "ERR")
+                : (geometry_index.found ? "ERR" : "N/A"));
 
         Draw(
             font,
