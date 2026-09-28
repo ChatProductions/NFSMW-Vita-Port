@@ -7,7 +7,9 @@ struct TpkTextureMetadata {
     char name[25];
     std::uint32_t key;
     std::uint32_t data_offset;
+    std::uint32_t palette_offset;
     std::uint32_t total_size;
+    std::uint32_t palette_size;
     std::uint32_t base_size;
     std::uint16_t width;
     std::uint16_t height;
