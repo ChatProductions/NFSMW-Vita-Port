@@ -27,6 +27,94 @@ static void Draw(vita2d_pgf *font,
     vita2d_pgf_draw_text(font, x, y, color, scale, text);
 }
 
+
+static void WriteGlobalBDiagnosticLog(
+    const TpkInventory &inventory,
+    const JdlzMemoryResult &jdlz,
+    const void *global_b_data,
+    std::uint32_t global_b_size) {
+
+    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-globalb-m7.log", "w");
+    if (!f)
+        return;
+
+    std::fprintf(f, "NFSMW Vita Port - Milestone 7 GlobalB diagnostics\n");
+    std::fprintf(f, "GlobalB JDLZ: %s\n", jdlz.valid ? "VALID" : "INVALID");
+    std::fprintf(f, "TPK inventory: %s\n", inventory.valid ? "VALID" : "INVALID");
+    std::fprintf(f, "Packs: %u\n\n", inventory.pack_count_total);
+
+    unsigned total_textures = 0;
+    unsigned p8_textures = 0;
+    unsigned self_contained_textures = 0;
+    unsigned metadata_failures = 0;
+
+    if (inventory.valid && jdlz.valid && global_b_data) {
+        for (std::size_t p = 0; p < inventory.displayed_packs; ++p) {
+            const TpkPackSummary &pack = inventory.packs[p];
+            const TpkMetadata meta = ReadTpkMetadataMemory(
+                global_b_data,
+                global_b_size,
+                pack.container_offset,
+                pack.container_size);
+
+            std::fprintf(f,
+                         "PACK %u/%u: %s\n",
+                         static_cast<unsigned>(p + 1),
+                         static_cast<unsigned>(inventory.displayed_packs),
+                         pack.source_path[0] ? pack.source_path : pack.name);
+
+            if (!meta.valid) {
+                ++metadata_failures;
+                std::fprintf(f, "  metadata INVALID\n\n");
+                continue;
+            }
+
+            std::fprintf(f,
+                         "  version=%u textures=%u\n",
+                         meta.version,
+                         meta.texture_count);
+
+            for (std::size_t i = 0; i < meta.displayed_textures; ++i) {
+                const TpkTextureMetadata &t = meta.textures[i];
+                char fmt[16];
+                const bool p8 = t.format == 0x29u;
+
+                ++total_textures;
+                if (p8)
+                    ++p8_textures;
+                else
+                    ++self_contained_textures;
+
+                std::fprintf(
+                    f,
+                    "  %3u/%3u %-24s %4ux%-4u %-8s off=0x%08X base=%u total=%u mips=%u %s\n",
+                    static_cast<unsigned>(i + 1),
+                    static_cast<unsigned>(meta.displayed_textures),
+                    t.name,
+                    static_cast<unsigned>(t.width),
+                    static_cast<unsigned>(t.height),
+                    DescribeTpkFormat(t.format, fmt, sizeof(fmt)),
+                    t.data_offset,
+                    t.base_size,
+                    t.total_size,
+                    static_cast<unsigned>(t.mip_count),
+                    p8 ? "P8_PALETTE_UNRESOLVED" : "SELF_CONTAINED");
+            }
+
+            std::fprintf(f, "\n");
+        }
+    }
+
+    std::fprintf(f,
+                 "SUMMARY total=%u self_contained=%u p8=%u metadata_failures=%u\n",
+                 total_textures,
+                 self_contained_textures,
+                 p8_textures,
+                 metadata_failures);
+
+    std::fclose(f);
+}
+
 static float FitScale(unsigned width,
                       unsigned height,
                       float max_w,
@@ -76,6 +164,12 @@ int main() {
                     global_b_jdlz.data,
                     global_b_jdlz.decompressed_size);
         }
+
+        WriteGlobalBDiagnosticLog(
+            global_b_tpk,
+            global_b_jdlz,
+            global_b_jdlz.data,
+            global_b_jdlz.decompressed_size);
     }
 
     std::size_t global_b_pack_index = 0;
