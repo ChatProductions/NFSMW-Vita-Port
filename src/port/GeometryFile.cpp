@@ -18,12 +18,8 @@ constexpr std::uint32_t kMeshVertices = 0x00134B01u;
 constexpr std::uint32_t kMeshGroups = 0x00134B02u;
 constexpr std::uint32_t kMeshIndices = 0x00134B03u;
 
-constexpr std::uint32_t kFvf36 = 0x004000u;
-constexpr std::uint32_t kFvf60a = 0x2A4000u;
-constexpr std::uint32_t kFvf60b = 0x224000u;
-
 constexpr std::size_t kGroupSize = 104;
-constexpr std::size_t kGroupFvf = 56;
+constexpr std::size_t kGroupTextureRef = 56;
 constexpr std::size_t kGroupVertexCount = 60;
 constexpr std::size_t kGroupTriCount = 64;
 
@@ -39,18 +35,9 @@ struct FoundChunk {
 };
 
 struct GroupInfo {
-    std::uint32_t fvf = 0;
+    std::uint32_t texture_ref = 0;
     std::uint32_t vertex_count = 0;
     std::uint32_t tri_count = 0;
-    std::uint32_t stride = 0;
-    bool inferred = false;
-};
-
-struct FvfTypeInfo {
-    std::uint32_t fvf = 0;
-    std::uint64_t vertex_count = 0;
-    std::uint32_t preferred_stride = 0;
-    std::uint32_t chosen_stride = 0;
 };
 
 bool ReadAt(FILE *f, std::uint32_t offset, void *dst, std::size_t size) {
@@ -209,13 +196,6 @@ bool LoadTopLevelChild(FILE *f,
     return false;
 }
 
-std::uint32_t StrideFromFvf(std::uint32_t fvf) {
-    if (fvf == kFvf36)
-        return 36;
-    if (fvf == kFvf60a || fvf == kFvf60b)
-        return 60;
-    return 0;
-}
 
 bool IsSaneBox(const float minv[3], const float maxv[3]) {
     for (int i = 0; i < 3; ++i) {
@@ -229,291 +209,143 @@ bool IsSaneBox(const float minv[3], const float maxv[3]) {
     return true;
 }
 
-
-float ScoreVertexLayout(
-    const std::vector<GroupInfo> &groups,
+float ScoreSolidLayout(
     const std::uint8_t *vertex_data,
-    std::size_t vertex_size,
+    std::size_t vertex_bytes,
+    std::uint32_t vertex_count,
+    std::uint32_t stride,
     const float bbox_min[3],
     const float bbox_max[3]) {
 
-    std::size_t cursor = 0;
-    float score = 0.0f;
-    std::size_t samples = 0;
+    if (!vertex_data ||
+        vertex_count == 0 ||
+        stride < 12 ||
+        static_cast<std::uint64_t>(vertex_count) * stride >
+            vertex_bytes)
+        return -1.0e30f;
 
     float tolerance[3]{};
     for (int axis = 0; axis < 3; ++axis) {
         const float extent = bbox_max[axis] - bbox_min[axis];
-        tolerance[axis] = std::max(0.20f, extent * 0.75f);
+        tolerance[axis] = std::max(0.25f, extent * 0.75f);
     }
 
-    for (const GroupInfo &group : groups) {
-        if (group.stride < 12 || group.stride > 128)
+    const std::uint32_t samples =
+        std::min<std::uint32_t>(vertex_count, 32u);
+    const std::uint32_t step =
+        std::max<std::uint32_t>(1u, vertex_count / samples);
+
+    float score = 0.0f;
+    std::uint32_t seen = 0;
+
+    for (std::uint32_t i = 0;
+         i < vertex_count && seen < samples;
+         i += step, ++seen) {
+        const std::size_t at =
+            static_cast<std::size_t>(i) * stride;
+
+        if (at + 12 > vertex_bytes)
             return -1.0e30f;
 
-        const std::uint64_t group_bytes =
-            static_cast<std::uint64_t>(group.vertex_count) *
-            group.stride;
+        const float x = ReadF32(vertex_data + at + 0);
+        const float y = ReadF32(vertex_data + at + 4);
+        const float z = ReadF32(vertex_data + at + 8);
 
-        if (group_bytes > vertex_size - cursor)
+        if (!std::isfinite(x) ||
+            !std::isfinite(y) ||
+            !std::isfinite(z) ||
+            std::fabs(x) > 100000.0f ||
+            std::fabs(y) > 100000.0f ||
+            std::fabs(z) > 100000.0f) {
             return -1.0e30f;
-
-        const std::uint32_t wanted_samples =
-            std::min<std::uint32_t>(group.vertex_count, 20u);
-
-        const std::uint32_t step =
-            wanted_samples > 0
-                ? std::max<std::uint32_t>(
-                      1u,
-                      group.vertex_count / wanted_samples)
-                : 1u;
-
-        for (std::uint32_t v = 0;
-             v < group.vertex_count && samples < 160;
-             v += step) {
-            const std::size_t at =
-                cursor +
-                static_cast<std::size_t>(v) * group.stride;
-
-            if (at + 12 > vertex_size)
-                return -1.0e30f;
-
-            const float x = ReadF32(vertex_data + at + 0);
-            const float y = ReadF32(vertex_data + at + 4);
-            const float z = ReadF32(vertex_data + at + 8);
-
-            if (!std::isfinite(x) ||
-                !std::isfinite(y) ||
-                !std::isfinite(z) ||
-                std::fabs(x) > 100000.0f ||
-                std::fabs(y) > 100000.0f ||
-                std::fabs(z) > 100000.0f) {
-                return -1.0e30f;
-            }
-
-            const float p[3]{x, y, z};
-
-            score += 1.0f;
-
-            for (int axis = 0; axis < 3; ++axis) {
-                if (p[axis] >= bbox_min[axis] - tolerance[axis] &&
-                    p[axis] <= bbox_max[axis] + tolerance[axis]) {
-                    score += 2.0f;
-                }
-            }
-
-            if (group.stride >= 24 && at + 24 <= vertex_size) {
-                const float nx = ReadF32(vertex_data + at + 12);
-                const float ny = ReadF32(vertex_data + at + 16);
-                const float nz = ReadF32(vertex_data + at + 20);
-
-                if (std::isfinite(nx) &&
-                    std::isfinite(ny) &&
-                    std::isfinite(nz)) {
-                    const float len2 =
-                        nx * nx + ny * ny + nz * nz;
-
-                    if (len2 > 0.55f && len2 < 1.45f)
-                        score += 1.0f;
-                }
-            }
-
-            ++samples;
         }
 
-        cursor += static_cast<std::size_t>(group_bytes);
+        const float p[3]{x, y, z};
+
+        score += 1.0f;
+        for (int axis = 0; axis < 3; ++axis) {
+            if (p[axis] >= bbox_min[axis] - tolerance[axis] &&
+                p[axis] <= bbox_max[axis] + tolerance[axis]) {
+                score += 2.0f;
+            }
+        }
+
+        // 36/60-byte layouts carry an unpacked normal at +12.
+        if ((stride == 36 || stride == 60) &&
+            at + 24 <= vertex_bytes) {
+            const float nx = ReadF32(vertex_data + at + 12);
+            const float ny = ReadF32(vertex_data + at + 16);
+            const float nz = ReadF32(vertex_data + at + 20);
+
+            if (std::isfinite(nx) &&
+                std::isfinite(ny) &&
+                std::isfinite(nz)) {
+                const float len2 = nx * nx + ny * ny + nz * nz;
+                if (len2 > 0.75f && len2 < 1.25f)
+                    score += 3.0f;
+            }
+        }
     }
 
-    if (cursor != vertex_size || samples == 0)
-        return -1.0e30f;
-
-    return score;
+    return seen ? score : -1.0e30f;
 }
 
-bool InferVertexStrides(
-    std::vector<GroupInfo> &groups,
-    const std::uint8_t *vertex_data,
-    std::size_t vertex_size,
+bool DetectSolidVertexLayout(
+    const std::uint8_t *payload,
+    std::size_t payload_size,
+    std::uint32_t vertex_count,
     const float bbox_min[3],
-    const float bbox_max[3]) {
+    const float bbox_max[3],
+    std::uint32_t &out_start,
+    std::uint32_t &out_stride) {
 
-    std::vector<FvfTypeInfo> types;
+    static constexpr std::uint32_t kStrides[] = {36, 60, 24};
 
-    for (const GroupInfo &group : groups) {
-        auto it = std::find_if(
-            types.begin(),
-            types.end(),
-            [&](const FvfTypeInfo &type) {
-                return type.fvf == group.fvf;
-            });
-
-        if (it == types.end()) {
-            FvfTypeInfo type{};
-            type.fvf = group.fvf;
-            type.vertex_count = group.vertex_count;
-            type.preferred_stride = StrideFromFvf(group.fvf);
-            types.push_back(type);
-        } else {
-            it->vertex_count += group.vertex_count;
-        }
-    }
-
-    if (types.empty())
-        return false;
-
-    static constexpr std::uint32_t kCandidates[] = {
-        24, 36, 60,
-        32, 40, 48, 28, 44, 52, 56, 64,
-        20, 16, 12,
-        68, 72, 76, 80, 84, 88, 92, 96,
-        100, 104, 108, 112, 116, 120, 124, 128
-    };
-
-    std::vector<std::uint32_t> best(types.size(), 0);
     float best_score = -1.0e30f;
-    std::size_t completed_layouts = 0;
-    std::size_t visited_nodes = 0;
+    std::uint32_t best_start = 0;
+    std::uint32_t best_stride = 0;
 
-    auto apply_choices = [&]() {
-        for (GroupInfo &group : groups) {
-            for (const FvfTypeInfo &type : types) {
-                if (group.fvf == type.fvf) {
-                    group.stride = type.chosen_stride;
-                    group.inferred =
-                        type.preferred_stride == 0 ||
-                        type.preferred_stride != type.chosen_stride;
-                    break;
-                }
-            }
-        }
-    };
+    for (std::uint32_t stride : kStrides) {
+        const std::uint64_t data_bytes =
+            static_cast<std::uint64_t>(vertex_count) * stride;
 
-    auto remaining_bounds =
-        [&](std::size_t from,
-            std::uint64_t &minimum,
-            std::uint64_t &maximum) {
-            minimum = 0;
-            maximum = 0;
+        if (data_bytes > payload_size)
+            continue;
 
-            for (std::size_t i = from; i < types.size(); ++i) {
-                minimum += types[i].vertex_count * 12u;
-                maximum += types[i].vertex_count * 128u;
-            }
-        };
+        const std::uint64_t start64 = payload_size - data_bytes;
 
-    auto search = [&](auto &&self,
-                      std::size_t type_index,
-                      std::uint64_t bytes_used) -> void {
-        if (++visited_nodes > 120000 ||
-            completed_layouts >= 256)
-            return;
+        // Retail MW vertex chunks use a short marker/preamble. Do not
+        // silently accept a layout that would require hundreds of bytes of
+        // unexplained leading data.
+        if (start64 > 128u)
+            continue;
 
-        if (type_index == types.size()) {
-            if (bytes_used != vertex_size)
-                return;
+        const std::uint32_t start =
+            static_cast<std::uint32_t>(start64);
 
-            ++completed_layouts;
-            apply_choices();
+        const float score =
+            ScoreSolidLayout(
+                payload + start,
+                payload_size - start,
+                vertex_count,
+                stride,
+                bbox_min,
+                bbox_max);
 
-            const float score =
-                ScoreVertexLayout(
-                    groups,
-                    vertex_data,
-                    vertex_size,
-                    bbox_min,
-                    bbox_max);
-
-            if (score > best_score) {
-                best_score = score;
-                for (std::size_t i = 0; i < types.size(); ++i)
-                    best[i] = types[i].chosen_stride;
-            }
-
-            return;
-        }
-
-        FvfTypeInfo &type = types[type_index];
-
-        auto try_stride = [&](std::uint32_t stride) {
-            const std::uint64_t add =
-                type.vertex_count * stride;
-
-            if (bytes_used + add > vertex_size)
-                return;
-
-            std::uint64_t min_rest = 0;
-            std::uint64_t max_rest = 0;
-            remaining_bounds(
-                type_index + 1,
-                min_rest,
-                max_rest);
-
-            const std::uint64_t next =
-                bytes_used + add;
-
-            if (next + min_rest > vertex_size ||
-                next + max_rest < vertex_size)
-                return;
-
-            type.chosen_stride = stride;
-            self(self, type_index + 1, next);
-        };
-
-        if (type.preferred_stride != 0)
-            try_stride(type.preferred_stride);
-
-        for (std::uint32_t stride : kCandidates) {
-            if (stride == type.preferred_stride)
-                continue;
-            try_stride(stride);
-        }
-    };
-
-    // The common case is one FVF type. Solve it directly to avoid a search
-    // and, importantly, do not assume the only retail strides are the three
-    // already documented by MWSDK.
-    if (types.size() == 1 &&
-        types[0].vertex_count != 0 &&
-        vertex_size % types[0].vertex_count == 0) {
-        const std::uint64_t stride =
-            vertex_size / types[0].vertex_count;
-
-        if (stride >= 12 &&
-            stride <= 128 &&
-            (stride & 3u) == 0) {
-            types[0].chosen_stride =
-                static_cast<std::uint32_t>(stride);
-
-            apply_choices();
-
-            const float score =
-                ScoreVertexLayout(
-                    groups,
-                    vertex_data,
-                    vertex_size,
-                    bbox_min,
-                    bbox_max);
-
-            if (score > -1.0e20f)
-                return true;
+        if (score > best_score) {
+            best_score = score;
+            best_start = start;
+            best_stride = stride;
         }
     }
 
-    if (types.size() > 6)
+    if (best_stride == 0 || best_score <= 0.0f)
         return false;
 
-    search(search, 0, 0);
-
-    if (best_score <= -1.0e20f)
-        return false;
-
-    for (std::size_t i = 0; i < types.size(); ++i)
-        types[i].chosen_stride = best[i];
-
-    apply_choices();
+    out_start = best_start;
+    out_stride = best_stride;
     return true;
 }
-
 
 } // namespace
 
@@ -749,7 +581,7 @@ GeometryMesh LoadGeometryObject(
     hdr += hdr_skip;
     const std::size_t hdr_size = header_chunk.size - hdr_skip;
 
-    out.flags = ReadU32(hdr + 0x0C);
+    out.flags = ReadU32(hdr + 0x18);
     out.name_hash = ReadU32(hdr + 0x10);
     out.num_tris = ReadU32(hdr + 0x14);
 
@@ -802,19 +634,16 @@ GeometryMesh LoadGeometryObject(
             groups + group_start + i * kGroupSize;
 
         GroupInfo &pg = parsed_groups[i];
-        pg.fvf = ReadU32(g + kGroupFvf);
+        pg.texture_ref = ReadU32(g + kGroupTextureRef);
         pg.vertex_count = ReadU32(g + kGroupVertexCount);
         pg.tri_count = ReadU32(g + kGroupTriCount);
-        pg.stride = StrideFromFvf(pg.fvf);
 
         total_vertices += pg.vertex_count;
         total_tris += pg.tri_count;
 
-        out.group_fvf[i] = pg.fvf;
+        out.group_texture_ref[i] = pg.texture_ref;
         out.group_vertex_count[i] = pg.vertex_count;
         out.group_tri_count[i] = pg.tri_count;
-        out.group_stride[i] = pg.stride;
-        out.group_stride_inferred[i] = false;
     }
 
     if (total_tris != out.num_tris) {
@@ -827,85 +656,66 @@ GeometryMesh LoadGeometryObject(
 
     const std::uint8_t *vertex_payload =
         object.data() + vertex_chunk.payload_offset;
-    const std::size_t vertex_marker =
-        SkipEightByteMarker(vertex_payload, vertex_chunk.size);
 
-    const std::uint8_t *vertex_data =
-        vertex_payload + vertex_marker;
-    const std::size_t vertex_size =
-        vertex_chunk.size - vertex_marker;
+    if (total_vertices == 0 || total_vertices > 200000u) {
+        std::snprintf(out.error, sizeof(out.error), "invalid vertex count");
+        return out;
+    }
 
-    if (!InferVertexStrides(
-            parsed_groups,
-            vertex_data,
-            vertex_size,
+    std::uint32_t vertex_start = 0;
+    std::uint32_t vertex_stride = 0;
+
+    if (!DetectSolidVertexLayout(
+            vertex_payload,
+            vertex_chunk.size,
+            static_cast<std::uint32_t>(total_vertices),
             out.bbox_min,
-            out.bbox_max)) {
+            out.bbox_max,
+            vertex_start,
+            vertex_stride)) {
         std::snprintf(
             out.error,
             sizeof(out.error),
-            "could not infer vertex strides");
+            "could not detect vertex start/stride");
         return out;
     }
 
-    out.supported_group_count = 0;
-    for (std::size_t i = 0; i < parsed_groups.size(); ++i) {
-        const GroupInfo &pg = parsed_groups[i];
+    out.vertex_data_offset = vertex_start;
+    out.vertex_stride = vertex_stride;
+    out.supported_group_count = out.group_count;
 
-        if (pg.stride >= 12) {
-            ++out.supported_group_count;
-            out.group_stride[i] = pg.stride;
-            out.group_stride_inferred[i] = pg.inferred;
-        }
-    }
-
-    std::uint64_t required_vertex_bytes = 0;
-    for (const GroupInfo &pg : parsed_groups) {
-        required_vertex_bytes +=
-            static_cast<std::uint64_t>(pg.vertex_count) *
-            pg.stride;
-    }
-
-    if (required_vertex_bytes != vertex_size ||
-        total_vertices > 200000u) {
-        std::snprintf(out.error, sizeof(out.error), "vertex layout exceeds buffer");
-        return out;
-    }
+    const std::uint8_t *vertex_data =
+        vertex_payload + vertex_start;
+    const std::size_t vertex_size =
+        vertex_chunk.size - vertex_start;
 
     out.vertices.reserve(static_cast<std::size_t>(total_vertices));
 
-    std::size_t vertex_cursor = 0;
+    for (std::uint32_t v = 0;
+         v < static_cast<std::uint32_t>(total_vertices);
+         ++v) {
+        const std::size_t at =
+            static_cast<std::size_t>(v) * vertex_stride;
 
-    for (const GroupInfo &pg : parsed_groups) {
-        for (std::uint32_t v = 0; v < pg.vertex_count; ++v) {
-            const std::size_t at =
-                vertex_cursor +
-                static_cast<std::size_t>(v) * pg.stride;
-
-            if (at + 12 > vertex_size) {
-                std::snprintf(out.error, sizeof(out.error), "vertex read overrun");
-                return out;
-            }
-
-            GeometryVertex gv{
-                ReadF32(vertex_data + at + 0),
-                ReadF32(vertex_data + at + 4),
-                ReadF32(vertex_data + at + 8)
-            };
-
-            if (!std::isfinite(gv.x) ||
-                !std::isfinite(gv.y) ||
-                !std::isfinite(gv.z)) {
-                std::snprintf(out.error, sizeof(out.error), "non-finite vertex");
-                return out;
-            }
-
-            out.vertices.push_back(gv);
+        if (at + 12 > vertex_size) {
+            std::snprintf(out.error, sizeof(out.error), "vertex read overrun");
+            return out;
         }
 
-        vertex_cursor +=
-            static_cast<std::size_t>(pg.vertex_count) *
-            pg.stride;
+        GeometryVertex gv{
+            ReadF32(vertex_data + at + 0),
+            ReadF32(vertex_data + at + 4),
+            ReadF32(vertex_data + at + 8)
+        };
+
+        if (!std::isfinite(gv.x) ||
+            !std::isfinite(gv.y) ||
+            !std::isfinite(gv.z)) {
+            std::snprintf(out.error, sizeof(out.error), "non-finite vertex");
+            return out;
+        }
+
+        out.vertices.push_back(gv);
     }
 
     const std::uint8_t *index_payload =
@@ -930,44 +740,34 @@ GeometryMesh LoadGeometryObject(
     out.indices.reserve(
         static_cast<std::size_t>(total_tris) * 3u);
 
-    std::size_t index_cursor = 0;
-    std::uint32_t vertex_base = 0;
+    const std::size_t index_count =
+        static_cast<std::size_t>(total_tris) * 3u;
 
-    for (const GroupInfo &pg : parsed_groups) {
-        for (std::uint32_t t = 0; t < pg.tri_count; ++t) {
-            for (unsigned corner = 0; corner < 3; ++corner) {
-                const std::size_t at =
-                    index_cursor +
-                    (static_cast<std::size_t>(t) * 3u + corner) *
-                        sizeof(std::uint16_t);
+    for (std::size_t i = 0; i < index_count; ++i) {
+        const std::size_t at = i * sizeof(std::uint16_t);
 
-                if (at + sizeof(std::uint16_t) > index_size) {
-                    std::snprintf(out.error, sizeof(out.error), "index read overrun");
-                    return out;
-                }
-
-                std::uint16_t local_index = 0;
-                std::memcpy(
-                    &local_index,
-                    index_data + at,
-                    sizeof(local_index));
-
-                if (local_index >= pg.vertex_count) {
-                    std::snprintf(out.error, sizeof(out.error),
-                                  "group-relative index out of range");
-                    return out;
-                }
-
-                out.indices.push_back(
-                    vertex_base + local_index);
-            }
+        if (at + sizeof(std::uint16_t) > index_size) {
+            std::snprintf(out.error, sizeof(out.error), "index read overrun");
+            return out;
         }
 
-        index_cursor +=
-            static_cast<std::size_t>(pg.tri_count) *
-            3u * sizeof(std::uint16_t);
+        std::uint16_t absolute_index = 0;
+        std::memcpy(
+            &absolute_index,
+            index_data + at,
+            sizeof(absolute_index));
 
-        vertex_base += pg.vertex_count;
+        if (absolute_index >= total_vertices) {
+            std::snprintf(
+                out.error,
+                sizeof(out.error),
+                "absolute index %u >= vertex count %u",
+                static_cast<unsigned>(absolute_index),
+                static_cast<unsigned>(total_vertices));
+            return out;
+        }
+
+        out.indices.push_back(absolute_index);
     }
 
     if (out.indices.size() !=
@@ -1038,21 +838,23 @@ void WriteGeometryLog(
                  mesh.bbox_max[1],
                  mesh.bbox_max[2]);
 
+    std::fprintf(
+        f,
+        "Vertex layout: start=%u stride=%u\n",
+        mesh.vertex_data_offset,
+        mesh.vertex_stride);
+
     for (std::size_t i = 0;
          i < mesh.group_count &&
          i < GeometryMesh::kMaxGroups;
          ++i) {
         std::fprintf(
             f,
-            "Group %u: fvf=0x%08X vertices=%u tris=%u stride=%u %s\n",
+            "Group %u: texref=0x%08X vertices=%u tris=%u\n",
             static_cast<unsigned>(i),
-            mesh.group_fvf[i],
+            mesh.group_texture_ref[i],
             mesh.group_vertex_count[i],
-            mesh.group_tri_count[i],
-            mesh.group_stride[i],
-            mesh.group_stride_inferred[i]
-                ? "INFERRED"
-                : "KNOWN");
+            mesh.group_tri_count[i]);
     }
 
     if (!mesh.valid)
