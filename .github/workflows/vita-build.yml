@@ -2,7 +2,7 @@ name: Build Vita VPK
 
 on:
   push:
-    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe]
+    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -57,14 +57,14 @@ jobs:
       - name: Upload VPK
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M1
+          name: NFSMW-Vita-Port-M2
           path: build-vita/nfsmw_vita_port.vpk
           if-no-files-found: error
 
       - name: Upload exact debug ELF
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M1-symbols
+          name: NFSMW-Vita-Port-M2-symbols
           path: |
             build-vita/nfsmw_vita_port
             build-vita/*.velf
