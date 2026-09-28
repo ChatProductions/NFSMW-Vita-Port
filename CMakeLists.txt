@@ -18,33 +18,32 @@ include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 add_library(nfsmw_decomp STATIC
   src/decomp/bCrc32.cpp
 )
-
 target_include_directories(nfsmw_decomp PUBLIC include)
 target_compile_options(nfsmw_decomp PRIVATE -Wall -Wextra)
+
+add_library(vitasdk_debugscreen STATIC
+  third_party/vitasdk_debugscreen/debugScreen.c
+)
+target_include_directories(vitasdk_debugscreen PUBLIC third_party/vitasdk_debugscreen)
 
 add_executable(nfsmw_vita_port
   src/main.cpp
 )
 
-target_include_directories(nfsmw_vita_port PRIVATE include)
+target_include_directories(nfsmw_vita_port PRIVATE
+  include
+  third_party/vitasdk_debugscreen
+)
 target_compile_options(nfsmw_vita_port PRIVATE -Wall -Wextra)
 
 target_link_libraries(nfsmw_vita_port PRIVATE
   nfsmw_decomp
-  vita2d
-  png
-  jpeg
-  z
-  freetype
-  m
-  SceGxm_stub
+  vitasdk_debugscreen
   SceDisplay_stub
   SceCtrl_stub
-  SceSysmodule_stub
-  ScePgf_stub
-  ScePvf_stub
-  SceCommonDialog_stub
-  SceAppMgr_stub
+  SceSysmem_stub
+  SceThreadmgr_stub
+  SceProcessmgr_stub
 )
 
 vita_create_self(nfsmw_vita_port.self nfsmw_vita_port UNSAFE)
