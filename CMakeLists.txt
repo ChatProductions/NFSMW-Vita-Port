@@ -55,6 +55,6 @@ target_link_libraries(nfsmw_vita_port PRIVATE
 vita_create_self(nfsmw_vita_port.self nfsmw_vita_port UNSAFE)
 
 vita_create_vpk(nfsmw_vita_port.vpk "NFMV00001" nfsmw_vita_port.self
-  VERSION "00.08"
-  NAME "NFSMW Vita Port M7"
+  VERSION "00.09"
+  NAME "NFSMW Vita Port M8"
 )
