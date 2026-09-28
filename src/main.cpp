@@ -7,6 +7,7 @@
 
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/io/fcntl.h>
 #include <vita2d.h>
 
 #include <algorithm>
@@ -34,7 +35,7 @@ static void WriteGlobalBDiagnosticLog(
     const void *global_b_data,
     std::uint32_t global_b_size) {
 
-    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-globalb-m7.log", "w");
+    FILE *f = std::fopen("ux0:data/nfsmw/logs/globalb-m7.log", "w");
     if (!f)
         return;
 
@@ -130,6 +131,11 @@ static float FitScale(unsigned width,
 }
 
 int main() {
+    // Keep generated diagnostics with the game data instead of scattering
+    // them across ux0:data.
+    sceIoMkdir("ux0:data/nfsmw", 0777);
+    sceIoMkdir("ux0:data/nfsmw/logs", 0777);
+
     const unsigned int crc =
         bCalculateCrc32(
             kProbe,
