@@ -224,11 +224,11 @@ TpkMetadata ReadTpkMetadata(const char *path) {
 }
 
 void WriteTpkMetadataLog(const char *path, const TpkMetadata &meta) {
-    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-m3.log", "w");
+    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-m4.log", "w");
     if (!f)
         return;
 
-    std::fprintf(f, "NFSMW Vita Port - Milestone 3\n");
+    std::fprintf(f, "NFSMW Vita Port - Milestone 4\n");
     std::fprintf(f, "Bundle: %s\n", path);
     std::fprintf(f, "Metadata: %s\n", meta.valid ? "VALID" : "INVALID");
 
