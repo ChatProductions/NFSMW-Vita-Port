@@ -36,17 +36,19 @@ static void WriteGlobalBDiagnosticLog(
     const void *global_b_data,
     std::uint32_t global_b_size) {
 
-    FILE *f = std::fopen("ux0:data/nfsmw/logs/globalb-m7.log", "w");
+    FILE *f = std::fopen("ux0:data/nfsmw/logs/globalb-m8.log", "w");
     if (!f)
         return;
 
-    std::fprintf(f, "NFSMW Vita Port - Milestone 7 GlobalB diagnostics\n");
+    std::fprintf(f, "NFSMW Vita Port - Milestone 8 GlobalB diagnostics\n");
     std::fprintf(f, "GlobalB JDLZ: %s\n", jdlz.valid ? "VALID" : "INVALID");
     std::fprintf(f, "TPK inventory: %s\n", inventory.valid ? "VALID" : "INVALID");
     std::fprintf(f, "Packs: %u\n\n", inventory.pack_count_total);
 
     unsigned total_textures = 0;
     unsigned p8_textures = 0;
+    unsigned p8_palettes_ready = 0;
+    unsigned p8_palettes_missing = 0;
     unsigned self_contained_textures = 0;
     unsigned metadata_failures = 0;
 
@@ -82,14 +84,27 @@ static void WriteGlobalBDiagnosticLog(
                 const bool p8 = t.format == 0x29u;
 
                 ++total_textures;
-                if (p8)
+
+                const bool p8_palette_ready =
+                    p8 &&
+                    t.palette_size >= 256u * 4u &&
+                    static_cast<std::uint64_t>(t.palette_offset) +
+                            256u * 4u <=
+                        meta.data_blob_size;
+
+                if (p8) {
                     ++p8_textures;
-                else
+                    if (p8_palette_ready)
+                        ++p8_palettes_ready;
+                    else
+                        ++p8_palettes_missing;
+                } else {
                     ++self_contained_textures;
+                }
 
                 std::fprintf(
                     f,
-                    "  %3u/%3u %-24s %4ux%-4u %-8s off=0x%08X base=%u total=%u mips=%u %s\n",
+                    "  %3u/%3u %-24s %4ux%-4u %-8s data=0x%08X base=%u total=%u pal=0x%08X/%u mips=%u %s\n",
                     static_cast<unsigned>(i + 1),
                     static_cast<unsigned>(meta.displayed_textures),
                     t.name,
@@ -99,20 +114,29 @@ static void WriteGlobalBDiagnosticLog(
                     t.data_offset,
                     t.base_size,
                     t.total_size,
+                    t.palette_offset,
+                    t.palette_size,
                     static_cast<unsigned>(t.mip_count),
-                    p8 ? "P8_PALETTE_UNRESOLVED" : "SELF_CONTAINED");
+                    p8
+                        ? (p8_palette_ready
+                               ? "P8_PALETTE_READY"
+                               : "P8_PALETTE_MISSING")
+                        : "SELF_CONTAINED");
             }
 
             std::fprintf(f, "\n");
         }
     }
 
-    std::fprintf(f,
-                 "SUMMARY total=%u self_contained=%u p8=%u metadata_failures=%u\n",
-                 total_textures,
-                 self_contained_textures,
-                 p8_textures,
-                 metadata_failures);
+    std::fprintf(
+        f,
+        "SUMMARY total=%u self_contained=%u p8=%u p8_ready=%u p8_missing=%u metadata_failures=%u\n",
+        total_textures,
+        self_contained_textures,
+        p8_textures,
+        p8_palettes_ready,
+        p8_palettes_missing,
+        metadata_failures);
 
     std::fclose(f);
 }
@@ -414,7 +438,7 @@ int main() {
             RGBA8(185, 185, 185, 255);
 
         Draw(font, 28, 38, white, 1.0f,
-             "NFSMW Vita Port - Milestone 7");
+             "NFSMW Vita Port - Milestone 8");
 
         char line[224];
 
