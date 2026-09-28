@@ -175,8 +175,18 @@ TpkMetadata ReadTpkMetadata(const char *path) {
                     reinterpret_cast<const char *>(header + 0x20), 64);
 
     out.texture_count = count_hash;
-    out.data_blob_offset = data_raw.payload_offset;
-    out.data_blob_size = data_raw.size;
+
+    // Retail MW's 0x33320002 chunk starts with a 0x78-byte table/header.
+    // TextureStruct::DataOffset is relative to the pixel stream after it.
+    // Treating the raw chunk payload as pixel byte 0 only appears plausible
+    // for large uncompressed textures and completely destroys DXT block alignment.
+    constexpr std::uint32_t kVramDataPrefix = 0x78u;
+    if (data_raw.size <= kVramDataPrefix) {
+        std::fclose(f);
+        return out;
+    }
+    out.data_blob_offset = data_raw.payload_offset + kVramDataPrefix;
+    out.data_blob_size = data_raw.size - kVramDataPrefix;
     out.displayed_textures =
         count_hash < TpkMetadata::kMaxTextures ? count_hash : TpkMetadata::kMaxTextures;
 
