@@ -43,6 +43,14 @@ struct GroupInfo {
     std::uint32_t vertex_count = 0;
     std::uint32_t tri_count = 0;
     std::uint32_t stride = 0;
+    bool inferred = false;
+};
+
+struct FvfTypeInfo {
+    std::uint32_t fvf = 0;
+    std::uint64_t vertex_count = 0;
+    std::uint32_t preferred_stride = 0;
+    std::uint32_t chosen_stride = 0;
 };
 
 bool ReadAt(FILE *f, std::uint32_t offset, void *dst, std::size_t size) {
@@ -220,6 +228,292 @@ bool IsSaneBox(const float minv[3], const float maxv[3]) {
     }
     return true;
 }
+
+
+float ScoreVertexLayout(
+    const std::vector<GroupInfo> &groups,
+    const std::uint8_t *vertex_data,
+    std::size_t vertex_size,
+    const float bbox_min[3],
+    const float bbox_max[3]) {
+
+    std::size_t cursor = 0;
+    float score = 0.0f;
+    std::size_t samples = 0;
+
+    float tolerance[3]{};
+    for (int axis = 0; axis < 3; ++axis) {
+        const float extent = bbox_max[axis] - bbox_min[axis];
+        tolerance[axis] = std::max(0.20f, extent * 0.75f);
+    }
+
+    for (const GroupInfo &group : groups) {
+        if (group.stride < 12 || group.stride > 128)
+            return -1.0e30f;
+
+        const std::uint64_t group_bytes =
+            static_cast<std::uint64_t>(group.vertex_count) *
+            group.stride;
+
+        if (group_bytes > vertex_size - cursor)
+            return -1.0e30f;
+
+        const std::uint32_t wanted_samples =
+            std::min<std::uint32_t>(group.vertex_count, 20u);
+
+        const std::uint32_t step =
+            wanted_samples > 0
+                ? std::max<std::uint32_t>(
+                      1u,
+                      group.vertex_count / wanted_samples)
+                : 1u;
+
+        for (std::uint32_t v = 0;
+             v < group.vertex_count && samples < 160;
+             v += step) {
+            const std::size_t at =
+                cursor +
+                static_cast<std::size_t>(v) * group.stride;
+
+            if (at + 12 > vertex_size)
+                return -1.0e30f;
+
+            const float x = ReadF32(vertex_data + at + 0);
+            const float y = ReadF32(vertex_data + at + 4);
+            const float z = ReadF32(vertex_data + at + 8);
+
+            if (!std::isfinite(x) ||
+                !std::isfinite(y) ||
+                !std::isfinite(z) ||
+                std::fabs(x) > 100000.0f ||
+                std::fabs(y) > 100000.0f ||
+                std::fabs(z) > 100000.0f) {
+                return -1.0e30f;
+            }
+
+            const float p[3]{x, y, z};
+
+            score += 1.0f;
+
+            for (int axis = 0; axis < 3; ++axis) {
+                if (p[axis] >= bbox_min[axis] - tolerance[axis] &&
+                    p[axis] <= bbox_max[axis] + tolerance[axis]) {
+                    score += 2.0f;
+                }
+            }
+
+            if (group.stride >= 24 && at + 24 <= vertex_size) {
+                const float nx = ReadF32(vertex_data + at + 12);
+                const float ny = ReadF32(vertex_data + at + 16);
+                const float nz = ReadF32(vertex_data + at + 20);
+
+                if (std::isfinite(nx) &&
+                    std::isfinite(ny) &&
+                    std::isfinite(nz)) {
+                    const float len2 =
+                        nx * nx + ny * ny + nz * nz;
+
+                    if (len2 > 0.55f && len2 < 1.45f)
+                        score += 1.0f;
+                }
+            }
+
+            ++samples;
+        }
+
+        cursor += static_cast<std::size_t>(group_bytes);
+    }
+
+    if (cursor != vertex_size || samples == 0)
+        return -1.0e30f;
+
+    return score;
+}
+
+bool InferVertexStrides(
+    std::vector<GroupInfo> &groups,
+    const std::uint8_t *vertex_data,
+    std::size_t vertex_size,
+    const float bbox_min[3],
+    const float bbox_max[3]) {
+
+    std::vector<FvfTypeInfo> types;
+
+    for (const GroupInfo &group : groups) {
+        auto it = std::find_if(
+            types.begin(),
+            types.end(),
+            [&](const FvfTypeInfo &type) {
+                return type.fvf == group.fvf;
+            });
+
+        if (it == types.end()) {
+            FvfTypeInfo type{};
+            type.fvf = group.fvf;
+            type.vertex_count = group.vertex_count;
+            type.preferred_stride = StrideFromFvf(group.fvf);
+            types.push_back(type);
+        } else {
+            it->vertex_count += group.vertex_count;
+        }
+    }
+
+    if (types.empty())
+        return false;
+
+    static constexpr std::uint32_t kCandidates[] = {
+        24, 36, 60,
+        32, 40, 48, 28, 44, 52, 56, 64,
+        20, 16, 12,
+        68, 72, 76, 80, 84, 88, 92, 96,
+        100, 104, 108, 112, 116, 120, 124, 128
+    };
+
+    std::vector<std::uint32_t> best(types.size(), 0);
+    float best_score = -1.0e30f;
+    std::size_t completed_layouts = 0;
+    std::size_t visited_nodes = 0;
+
+    auto apply_choices = [&]() {
+        for (GroupInfo &group : groups) {
+            for (const FvfTypeInfo &type : types) {
+                if (group.fvf == type.fvf) {
+                    group.stride = type.chosen_stride;
+                    group.inferred =
+                        type.preferred_stride == 0 ||
+                        type.preferred_stride != type.chosen_stride;
+                    break;
+                }
+            }
+        }
+    };
+
+    auto remaining_bounds =
+        [&](std::size_t from,
+            std::uint64_t &minimum,
+            std::uint64_t &maximum) {
+            minimum = 0;
+            maximum = 0;
+
+            for (std::size_t i = from; i < types.size(); ++i) {
+                minimum += types[i].vertex_count * 12u;
+                maximum += types[i].vertex_count * 128u;
+            }
+        };
+
+    auto search = [&](auto &&self,
+                      std::size_t type_index,
+                      std::uint64_t bytes_used) -> void {
+        if (++visited_nodes > 120000 ||
+            completed_layouts >= 256)
+            return;
+
+        if (type_index == types.size()) {
+            if (bytes_used != vertex_size)
+                return;
+
+            ++completed_layouts;
+            apply_choices();
+
+            const float score =
+                ScoreVertexLayout(
+                    groups,
+                    vertex_data,
+                    vertex_size,
+                    bbox_min,
+                    bbox_max);
+
+            if (score > best_score) {
+                best_score = score;
+                for (std::size_t i = 0; i < types.size(); ++i)
+                    best[i] = types[i].chosen_stride;
+            }
+
+            return;
+        }
+
+        FvfTypeInfo &type = types[type_index];
+
+        auto try_stride = [&](std::uint32_t stride) {
+            const std::uint64_t add =
+                type.vertex_count * stride;
+
+            if (bytes_used + add > vertex_size)
+                return;
+
+            std::uint64_t min_rest = 0;
+            std::uint64_t max_rest = 0;
+            remaining_bounds(
+                type_index + 1,
+                min_rest,
+                max_rest);
+
+            const std::uint64_t next =
+                bytes_used + add;
+
+            if (next + min_rest > vertex_size ||
+                next + max_rest < vertex_size)
+                return;
+
+            type.chosen_stride = stride;
+            self(self, type_index + 1, next);
+        };
+
+        if (type.preferred_stride != 0)
+            try_stride(type.preferred_stride);
+
+        for (std::uint32_t stride : kCandidates) {
+            if (stride == type.preferred_stride)
+                continue;
+            try_stride(stride);
+        }
+    };
+
+    // The common case is one FVF type. Solve it directly to avoid a search
+    // and, importantly, do not assume the only retail strides are the three
+    // already documented by MWSDK.
+    if (types.size() == 1 &&
+        types[0].vertex_count != 0 &&
+        vertex_size % types[0].vertex_count == 0) {
+        const std::uint64_t stride =
+            vertex_size / types[0].vertex_count;
+
+        if (stride >= 12 &&
+            stride <= 128 &&
+            (stride & 3u) == 0) {
+            types[0].chosen_stride =
+                static_cast<std::uint32_t>(stride);
+
+            apply_choices();
+
+            const float score =
+                ScoreVertexLayout(
+                    groups,
+                    vertex_data,
+                    vertex_size,
+                    bbox_min,
+                    bbox_max);
+
+            if (score > -1.0e20f)
+                return true;
+        }
+    }
+
+    if (types.size() > 6)
+        return false;
+
+    search(search, 0, 0);
+
+    if (best_score <= -1.0e20f)
+        return false;
+
+    for (std::size_t i = 0; i < types.size(); ++i)
+        types[i].chosen_stride = best[i];
+
+    apply_choices();
+    return true;
+}
+
 
 } // namespace
 
@@ -502,8 +796,6 @@ GeometryMesh LoadGeometryObject(
 
     std::uint64_t total_vertices = 0;
     std::uint64_t total_tris = 0;
-    std::uint64_t known_vertex_bytes = 0;
-    std::uint64_t unknown_vertices = 0;
 
     for (std::size_t i = 0; i < parsed_groups.size(); ++i) {
         const std::uint8_t *g =
@@ -518,14 +810,11 @@ GeometryMesh LoadGeometryObject(
         total_vertices += pg.vertex_count;
         total_tris += pg.tri_count;
 
-        if (pg.stride != 0) {
-            known_vertex_bytes +=
-                static_cast<std::uint64_t>(pg.vertex_count) *
-                pg.stride;
-            ++out.supported_group_count;
-        } else {
-            unknown_vertices += pg.vertex_count;
-        }
+        out.group_fvf[i] = pg.fvf;
+        out.group_vertex_count[i] = pg.vertex_count;
+        out.group_tri_count[i] = pg.tri_count;
+        out.group_stride[i] = pg.stride;
+        out.group_stride_inferred[i] = false;
     }
 
     if (total_tris != out.num_tris) {
@@ -546,26 +835,27 @@ GeometryMesh LoadGeometryObject(
     const std::size_t vertex_size =
         vertex_chunk.size - vertex_marker;
 
-    if (unknown_vertices != 0) {
-        if (known_vertex_bytes > vertex_size) {
-            std::snprintf(out.error, sizeof(out.error), "vertex buffer too small");
-            return out;
-        }
+    if (!InferVertexStrides(
+            parsed_groups,
+            vertex_data,
+            vertex_size,
+            out.bbox_min,
+            out.bbox_max)) {
+        std::snprintf(
+            out.error,
+            sizeof(out.error),
+            "could not infer vertex strides");
+        return out;
+    }
 
-        const std::uint64_t remaining =
-            vertex_size - known_vertex_bytes;
+    out.supported_group_count = 0;
+    for (std::size_t i = 0; i < parsed_groups.size(); ++i) {
+        const GroupInfo &pg = parsed_groups[i];
 
-        if (remaining == unknown_vertices * 24u) {
-            for (GroupInfo &pg : parsed_groups) {
-                if (pg.stride == 0) {
-                    pg.stride = 24;
-                    ++out.supported_group_count;
-                }
-            }
-        } else {
-            std::snprintf(out.error, sizeof(out.error),
-                          "unknown FVF/stride in geometry");
-            return out;
+        if (pg.stride >= 12) {
+            ++out.supported_group_count;
+            out.group_stride[i] = pg.stride;
+            out.group_stride_inferred[i] = pg.inferred;
         }
     }
 
@@ -576,7 +866,7 @@ GeometryMesh LoadGeometryObject(
             pg.stride;
     }
 
-    if (required_vertex_bytes > vertex_size ||
+    if (required_vertex_bytes != vertex_size ||
         total_vertices > 200000u) {
         std::snprintf(out.error, sizeof(out.error), "vertex layout exceeds buffer");
         return out;
@@ -747,6 +1037,23 @@ void WriteGeometryLog(
                  mesh.bbox_max[0],
                  mesh.bbox_max[1],
                  mesh.bbox_max[2]);
+
+    for (std::size_t i = 0;
+         i < mesh.group_count &&
+         i < GeometryMesh::kMaxGroups;
+         ++i) {
+        std::fprintf(
+            f,
+            "Group %u: fvf=0x%08X vertices=%u tris=%u stride=%u %s\n",
+            static_cast<unsigned>(i),
+            mesh.group_fvf[i],
+            mesh.group_vertex_count[i],
+            mesh.group_tri_count[i],
+            mesh.group_stride[i],
+            mesh.group_stride_inferred[i]
+                ? "INFERRED"
+                : "KNOWN");
+    }
 
     if (!mesh.valid)
         std::fprintf(f, "Mesh error: %s\n", mesh.error);
