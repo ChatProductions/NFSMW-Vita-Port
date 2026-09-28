@@ -69,8 +69,10 @@ int main() {
         vita2d_swap_buffers();
     } while (!(pad.buttons & SCE_CTRL_START));
 
-    vita2d_free_pgf(font);
+    // libvita2d requires GPU shutdown before GPU-backed/font resources
+    // are released. This also waits for pending rendering to finish.
     vita2d_fini();
+    vita2d_free_pgf(font);
 
     sceKernelExitProcess(pass ? 0 : 1);
     return pass ? 0 : 1;
