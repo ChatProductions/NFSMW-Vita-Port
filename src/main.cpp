@@ -1,5 +1,6 @@
 #include "decomp/bCrc32.h"
 #include "port/BundleProbe.h"
+#include "port/TpkMetadata.h"
 
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
@@ -12,8 +13,8 @@ static constexpr unsigned int kExpected = 0x66F9D7D0u;
 static constexpr const char *kProbe = "NFSMW-Vita-Port";
 static constexpr const char *kBundlePath = "ux0:data/nfsmw/GLOBALA.BUN";
 
-static void DrawText(vita2d_pgf *font, int x, int y, unsigned int color,
-                     float scale, const char *text) {
+static void Draw(vita2d_pgf *font, int x, int y, unsigned int color,
+                 float scale, const char *text) {
     vita2d_pgf_draw_text(font, x, y, color, scale, text);
 }
 
@@ -22,8 +23,11 @@ int main() {
         bCalculateCrc32(kProbe, static_cast<int>(std::strlen(kProbe)), 0);
     const bool crc_pass = crc == kExpected;
 
-    BundleProbeResult bundle = ProbeNfsmwBundle(kBundlePath);
+    const BundleProbeResult bundle = ProbeNfsmwBundle(kBundlePath);
     WriteBundleProbeLog(kBundlePath, bundle);
+
+    const TpkMetadata tpk = ReadTpkMetadata(kBundlePath);
+    WriteTpkMetadataLog(kBundlePath, tpk);
 
     vita2d_init();
     vita2d_set_clear_color(RGBA8(18, 18, 18, 255));
@@ -43,51 +47,55 @@ int main() {
         const unsigned int amber = RGBA8(245, 190, 70, 255);
         const unsigned int red = RGBA8(240, 80, 80, 255);
 
-        DrawText(font, 36, 50, white, 1.1f,
-                 "NFSMW Vita Port - Milestone 1");
+        Draw(font, 32, 42, white, 1.05f,
+             "NFSMW Vita Port - Milestone 2");
 
         char crc_line[96];
         std::snprintf(crc_line, sizeof(crc_line),
-                      "VishDec CRC core: %s (%08X)",
-                      crc_pass ? "PASS" : "FAIL", crc);
-        DrawText(font, 36, 88, crc_pass ? green : red, 0.85f, crc_line);
+                      "VishDec CRC: %s", crc_pass ? "PASS" : "FAIL");
+        Draw(font, 32, 75, crc_pass ? green : red, 0.72f, crc_line);
 
         if (!bundle.found) {
-            DrawText(font, 36, 145, amber, 1.0f,
-                     "Waiting for real NFSMW PC game data");
-            DrawText(font, 36, 190, white, 0.78f,
-                     "Copy PC GLOBAL\\GLOBALA.BUN to:");
-            DrawText(font, 36, 222, white, 0.78f,
-                     "ux0:data/nfsmw/GLOBALA.BUN");
-            DrawText(font, 36, 280, white, 0.78f,
-                     "Then relaunch this app.");
+            Draw(font, 32, 130, amber, 0.9f,
+                 "GLOBALA.BUN not found");
+            Draw(font, 32, 165, white, 0.72f,
+                 "Expected: ux0:data/nfsmw/GLOBALA.BUN");
+        } else if (!bundle.valid) {
+            Draw(font, 32, 130, red, 0.9f,
+                 "GLOBALA.BUN chunk tree INVALID");
+        } else if (!tpk.valid) {
+            Draw(font, 32, 130, red, 0.9f,
+                 "TPK metadata parser could not validate this pack");
         } else {
-            char status[128];
-            std::snprintf(status, sizeof(status),
-                          "GLOBALA.BUN: %u bytes - %s - %u chunks",
-                          bundle.file_size,
-                          bundle.valid ? "VALID" : "INVALID",
-                          bundle.parsed_chunks);
-            DrawText(font, 36, 132, bundle.valid ? green : red, 0.78f, status);
+            char line[160];
 
-            int y = 174;
-            for (std::size_t i = 0; i < bundle.displayed_chunks && y < 448; ++i) {
-                const BundleChunkInfo &c = bundle.chunks[i];
-                char line[128];
+            std::snprintf(line, sizeof(line),
+                          "Pack: %s   version %u   textures %u",
+                          tpk.pack_name, tpk.version, tpk.texture_count);
+            Draw(font, 32, 112, green, 0.72f, line);
+
+            std::snprintf(line, sizeof(line),
+                          "Source: %s", tpk.source_path);
+            Draw(font, 32, 139, white, 0.62f, line);
+
+            int y = 180;
+            for (std::size_t i = 0; i < tpk.displayed_textures && y <= 445; ++i) {
+                const TpkTextureMetadata &t = tpk.textures[i];
+                char fmt[16];
                 std::snprintf(line, sizeof(line),
-                              "%c d%u  off %08X  id %08X  size %d",
-                              c.nested ? 'N' : 'D',
-                              static_cast<unsigned>(c.depth),
-                              c.offset,
-                              c.id,
-                              c.size);
-                DrawText(font, 44, y, white, 0.67f, line);
-                y += 23;
+                              "%u. %-20s %ux%u  %s",
+                              static_cast<unsigned>(i + 1),
+                              t.name,
+                              static_cast<unsigned>(t.width),
+                              static_cast<unsigned>(t.height),
+                              DescribeTpkFormat(t.format, fmt, sizeof(fmt)));
+                Draw(font, 42, y, white, 0.70f, line);
+                y += 42;
             }
         }
 
-        DrawText(font, 36, 510, white, 0.72f,
-                 "START: exit");
+        Draw(font, 32, 510, white, 0.70f,
+             "START: exit");
 
         vita2d_end_drawing();
         vita2d_swap_buffers();
@@ -97,6 +105,7 @@ int main() {
     vita2d_free_pgf(font);
     vita2d_fini();
 
-    sceKernelExitProcess((crc_pass && (!bundle.found || bundle.valid)) ? 0 : 1);
-    return 0;
+    const bool ok = crc_pass && (!bundle.found || (bundle.valid && tpk.valid));
+    sceKernelExitProcess(ok ? 0 : 1);
+    return ok ? 0 : 1;
 }
