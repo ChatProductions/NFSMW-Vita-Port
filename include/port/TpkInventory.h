@@ -5,6 +5,7 @@
 
 struct TpkPackSummary {
     char name[29];
+    char source_path[65];
     std::uint32_t version;
     std::uint32_t texture_count;
     std::uint32_t container_offset;
