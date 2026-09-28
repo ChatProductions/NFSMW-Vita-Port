@@ -16,7 +16,7 @@ struct TpkTextureMetadata {
 };
 
 struct TpkMetadata {
-    static constexpr std::size_t kMaxTextures = 16;
+    static constexpr std::size_t kMaxTextures = 128;
 
     bool valid;
     std::uint32_t version;
@@ -30,5 +30,11 @@ struct TpkMetadata {
 };
 
 TpkMetadata ReadTpkMetadata(const char *path);
+
+TpkMetadata ReadTpkMetadataMemory(const void *data,
+                                  std::uint32_t data_size,
+                                  std::uint32_t container_offset,
+                                  std::uint32_t container_size);
+
 void WriteTpkMetadataLog(const char *path, const TpkMetadata &meta);
 const char *DescribeTpkFormat(std::uint32_t format, char *buffer, std::size_t buffer_size);
