@@ -24,6 +24,7 @@ target_compile_options(nfsmw_decomp PRIVATE -Wall -Wextra)
 
 add_executable(nfsmw_vita_port
   src/main.cpp
+  src/port/BundleProbe.cpp
 )
 
 target_include_directories(nfsmw_vita_port PRIVATE include)
