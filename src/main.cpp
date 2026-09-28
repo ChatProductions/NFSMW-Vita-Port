@@ -1,6 +1,7 @@
 #include "decomp/bCrc32.h"
 #include "port/BundleProbe.h"
 #include "port/TpkMetadata.h"
+#include "port/TpkTexture.h"
 
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
@@ -31,7 +32,10 @@ int main() {
 
     vita2d_init();
     vita2d_set_clear_color(RGBA8(18, 18, 18, 255));
+
     vita2d_pgf *font = vita2d_load_default_pgf();
+    vita2d_texture *mw_logo =
+        tpk.valid ? LoadTpkArgb32BaseLevel(kBundlePath, tpk, 0) : nullptr;
 
     sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 
@@ -48,50 +52,43 @@ int main() {
         const unsigned int red = RGBA8(240, 80, 80, 255);
 
         Draw(font, 32, 42, white, 1.05f,
-             "NFSMW Vita Port - Milestone 2");
-
-        char crc_line[96];
-        std::snprintf(crc_line, sizeof(crc_line),
-                      "VishDec CRC: %s", crc_pass ? "PASS" : "FAIL");
-        Draw(font, 32, 75, crc_pass ? green : red, 0.72f, crc_line);
+             "NFSMW Vita Port - Milestone 3");
 
         if (!bundle.found) {
-            Draw(font, 32, 130, amber, 0.9f,
+            Draw(font, 32, 110, amber, 0.9f,
                  "GLOBALA.BUN not found");
-            Draw(font, 32, 165, white, 0.72f,
-                 "Expected: ux0:data/nfsmw/GLOBALA.BUN");
-        } else if (!bundle.valid) {
-            Draw(font, 32, 130, red, 0.9f,
-                 "GLOBALA.BUN chunk tree INVALID");
-        } else if (!tpk.valid) {
-            Draw(font, 32, 130, red, 0.9f,
-                 "TPK metadata parser could not validate this pack");
+        } else if (!bundle.valid || !tpk.valid) {
+            Draw(font, 32, 110, red, 0.9f,
+                 "GLOBALA.BUN / TPK validation failed");
+        } else if (!mw_logo) {
+            Draw(font, 32, 110, red, 0.9f,
+                 "MW_LOGO texture load failed");
         } else {
+            Draw(font, 32, 86, green, 0.72f,
+                 "Real NFSMW asset decoded from GLOBALA.BUN");
+
+            vita2d_draw_texture(mw_logo, 224.0f, 145.0f);
+
             char line[160];
+            const TpkTextureMetadata &logo = tpk.textures[0];
+            std::snprintf(line, sizeof(line),
+                          "%s  %ux%u  ARGB32  %u bytes",
+                          logo.name,
+                          static_cast<unsigned>(logo.width),
+                          static_cast<unsigned>(logo.height),
+                          logo.base_size);
+            Draw(font, 32, 330, white, 0.72f, line);
 
             std::snprintf(line, sizeof(line),
-                          "Pack: %s   version %u   textures %u",
-                          tpk.pack_name, tpk.version, tpk.texture_count);
-            Draw(font, 32, 112, green, 0.72f, line);
+                          "Pack: %s  |  source: %s",
+                          tpk.pack_name, tpk.source_path);
+            Draw(font, 32, 365, white, 0.60f, line);
 
             std::snprintf(line, sizeof(line),
-                          "Source: %s", tpk.source_path);
-            Draw(font, 32, 139, white, 0.62f, line);
-
-            int y = 180;
-            for (std::size_t i = 0; i < tpk.displayed_textures && y <= 445; ++i) {
-                const TpkTextureMetadata &t = tpk.textures[i];
-                char fmt[16];
-                std::snprintf(line, sizeof(line),
-                              "%u. %-20s %ux%u  %s",
-                              static_cast<unsigned>(i + 1),
-                              t.name,
-                              static_cast<unsigned>(t.width),
-                              static_cast<unsigned>(t.height),
-                              DescribeTpkFormat(t.format, fmt, sizeof(fmt)));
-                Draw(font, 42, y, white, 0.70f, line);
-                y += 42;
-            }
+                          "VishDec CRC: %s  |  chunk tree: %s",
+                          crc_pass ? "PASS" : "FAIL",
+                          bundle.valid ? "VALID" : "INVALID");
+            Draw(font, 32, 405, crc_pass ? green : red, 0.62f, line);
         }
 
         Draw(font, 32, 510, white, 0.70f,
@@ -101,11 +98,14 @@ int main() {
         vita2d_swap_buffers();
     } while (!(pad.buttons & SCE_CTRL_START));
 
+    // Drain all commands before freeing sampled textures or font atlases.
     vita2d_wait_rendering_done();
+    if (mw_logo)
+        vita2d_free_texture(mw_logo);
     vita2d_free_pgf(font);
     vita2d_fini();
 
-    const bool ok = crc_pass && (!bundle.found || (bundle.valid && tpk.valid));
+    const bool ok = crc_pass && bundle.found && bundle.valid && tpk.valid && mw_logo;
     sceKernelExitProcess(ok ? 0 : 1);
     return ok ? 0 : 1;
 }
