@@ -21,6 +21,7 @@ struct PackFields {
     bool compressed_entries = false;
     std::uint32_t version = 0;
     char name[29]{};
+    char source_path[65]{};
     std::uint32_t texture_count = 0;
 };
 
@@ -34,15 +35,22 @@ bool ReadHeader(const std::uint8_t *data,
     return true;
 }
 
-void CopyPackName(char (&dst)[29], const std::uint8_t *src) {
-    std::memcpy(dst, src, 28);
-    dst[28] = '\0';
+template <std::size_t N>
+void CopyText(char (&dst)[N],
+              const std::uint8_t *src,
+              std::size_t src_size) {
+    const std::size_t n =
+        src_size < (N - 1) ? src_size : (N - 1);
 
-    for (std::size_t i = 0; i < 28; ++i) {
+    std::memcpy(dst, src, n);
+    dst[n] = '\0';
+
+    for (std::size_t i = 0; i < n; ++i) {
         if (dst[i] == '\0')
             break;
-        const unsigned char c = static_cast<unsigned char>(dst[i]);
-        if (c < 0x20 || c > 0x7E)
+        const unsigned char ch =
+            static_cast<unsigned char>(dst[i]);
+        if (ch < 0x20 || ch > 0x7E)
             dst[i] = '?';
     }
 }
@@ -79,7 +87,9 @@ bool ScanPackFields(const std::uint8_t *data,
 
             fields.header_found = true;
             std::memcpy(&fields.version, data + payload, sizeof(fields.version));
-            CopyPackName(fields.name, data + payload + 4);
+            CopyText(fields.name, data + payload + 4, 28);
+            if (h.size >= 96)
+                CopyText(fields.source_path, data + payload + 32, 64);
         } else if (h.id == kTpkEntries) {
             if ((h.size % 124u) != 0u)
                 return false;
@@ -155,6 +165,9 @@ bool ScanRegion(const std::uint8_t *data,
             if (out.displayed_packs < TpkInventory::kMaxPacks) {
                 TpkPackSummary &pack = out.packs[out.displayed_packs++];
                 std::memcpy(pack.name, fields.name, sizeof(pack.name));
+                std::memcpy(pack.source_path,
+                            fields.source_path,
+                            sizeof(pack.source_path));
                 pack.version = fields.version;
                 pack.texture_count = fields.entries_found
                     ? fields.texture_count
