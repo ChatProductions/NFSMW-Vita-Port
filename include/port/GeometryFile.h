@@ -30,6 +30,8 @@ struct GeometryVertex {
 };
 
 struct GeometryMesh {
+    static constexpr std::size_t kMaxGroups = 256;
+
     bool valid = false;
     std::uint32_t name_hash = 0;
     std::uint32_t flags = 0;
@@ -40,6 +42,12 @@ struct GeometryMesh {
     float bbox_max[3]{};
     char name[64]{};
     char error[128]{};
+
+    std::uint32_t group_fvf[kMaxGroups]{};
+    std::uint32_t group_vertex_count[kMaxGroups]{};
+    std::uint32_t group_tri_count[kMaxGroups]{};
+    std::uint32_t group_stride[kMaxGroups]{};
+    bool group_stride_inferred[kMaxGroups]{};
 
     std::vector<GeometryVertex> vertices;
     std::vector<std::uint32_t> indices;
