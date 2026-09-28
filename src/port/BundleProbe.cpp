@@ -196,7 +196,7 @@ BundleProbeResult ProbeNfsmwBundleMemory(const void *data, std::uint32_t size) {
 }
 
 void WriteBundleProbeLog(const char *path, const BundleProbeResult &result) {
-    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-m1.log", "w");
+    FILE *f = std::fopen("ux0:data/nfsmw/logs/bundle-probe.log", "w");
     if (!f)
         return;
 
