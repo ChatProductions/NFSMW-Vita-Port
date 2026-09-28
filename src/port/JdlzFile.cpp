@@ -23,9 +23,8 @@ std::uint32_t ReadLe32(const std::uint8_t *p) {
 
 } // namespace
 
-JdlzFileResult DecompressJdlzFile(const char *input_path,
-                                  const char *output_path) {
-    JdlzFileResult result{};
+JdlzMemoryResult DecompressJdlzFileToMemory(const char *input_path) {
+    JdlzMemoryResult result{};
     result.error = "input not found";
 
     FILE *f = std::fopen(input_path, "rb");
@@ -184,31 +183,19 @@ JdlzFileResult DecompressJdlzFile(const char *input_path,
     std::free(input);
 
     if (op != result.decompressed_size) {
-        if (result.error == nullptr)
-            result.error = "decompressed size mismatch";
         std::free(output);
         return result;
     }
 
-    FILE *out = std::fopen(output_path, "wb");
-    if (!out) {
-        result.error = "cannot create cache file";
-        std::free(output);
-        return result;
-    }
-
-    const std::size_t written =
-        std::fwrite(output, 1, result.decompressed_size, out);
-    std::fclose(out);
-    std::free(output);
-
-    if (written != result.decompressed_size) {
-        result.error = "cache write failed";
-        return result;
-    }
-
-    result.bytes_written = static_cast<std::uint32_t>(written);
+    result.data = output;
     result.valid = true;
     result.error = "OK";
     return result;
+}
+
+void FreeJdlzMemory(JdlzMemoryResult &result) {
+    if (result.data) {
+        std::free(result.data);
+        result.data = nullptr;
+    }
 }
