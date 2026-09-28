@@ -16,7 +16,6 @@ static constexpr unsigned int kExpected = 0x66F9D7D0u;
 static constexpr const char *kProbe = "NFSMW-Vita-Port";
 static constexpr const char *kGlobalAPath = "ux0:data/nfsmw/GLOBALA.BUN";
 static constexpr const char *kGlobalBPath = "ux0:data/nfsmw/GlobalB.lzc";
-static constexpr const char *kGlobalBRawPath = "ux0:data/nfsmw/GlobalB.raw";
 
 static void Draw(vita2d_pgf *font, int x, int y, unsigned int color,
                  float scale, const char *text) {
@@ -32,12 +31,15 @@ int main() {
     const TpkMetadata tpk = ReadTpkMetadata(kGlobalAPath);
     WriteTpkMetadataLog(kGlobalAPath, tpk);
 
-    const JdlzFileResult global_b_jdlz =
-        DecompressJdlzFile(kGlobalBPath, kGlobalBRawPath);
+    JdlzMemoryResult global_b_jdlz =
+        DecompressJdlzFileToMemory(kGlobalBPath);
 
     BundleProbeResult global_b{};
-    if (global_b_jdlz.valid)
-        global_b = ProbeNfsmwBundle(kGlobalBRawPath);
+    if (global_b_jdlz.valid) {
+        global_b = ProbeNfsmwBundleMemory(
+            global_b_jdlz.data,
+            global_b_jdlz.decompressed_size);
+    }
 
     vita2d_init();
     vita2d_set_clear_color(RGBA8(18, 18, 18, 255));
@@ -181,9 +183,8 @@ int main() {
                               global_b_jdlz.decompressed_size);
                 Draw(font, 28, 76, green, 0.76f, line);
 
-                std::snprintf(line, sizeof(line),
-                              "Decompressed cache: %s", kGlobalBRawPath);
-                Draw(font, 28, 106, gray, 0.58f, line);
+                Draw(font, 28, 106, gray, 0.58f,
+                     "Decompressed in RAM only (no .raw cache file)");
 
                 if (!global_b.found || !global_b.valid) {
                     Draw(font, 28, 150, red, 0.82f,
@@ -250,6 +251,8 @@ int main() {
         (global_b_jdlz.valid && global_b.found && global_b.valid);
 
     const bool ok = base_ok && global_b_ok;
+
+    FreeJdlzMemory(global_b_jdlz);
 
     sceKernelExitProcess(ok ? 0 : 1);
     return ok ? 0 : 1;
