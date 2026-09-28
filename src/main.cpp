@@ -8,6 +8,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
 #include <vita2d.h>
 
 #include <algorithm>
