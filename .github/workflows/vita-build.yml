@@ -29,13 +29,6 @@ jobs:
           echo "VITASDK=$HOME/vitasdk" >> "$GITHUB_ENV"
           echo "$HOME/vitasdk/bin" >> "$GITHUB_PATH"
 
-      - name: Install Vita libraries
-        shell: bash
-        run: |
-          export VITASDK="$HOME/vitasdk"
-          export VDPM_NONINTERACTIVE=1
-          "$VITASDK/bin/vdpm" install libvita2d
-
       - name: Configure
         shell: bash
         run: |
