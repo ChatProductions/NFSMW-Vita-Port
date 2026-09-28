@@ -255,7 +255,9 @@ TpkMetadata BuildMetadata(Reader read,
 
         std::memcpy(&t.key, entry + 0x24, sizeof(t.key));
         std::memcpy(&t.data_offset, entry + 0x30, sizeof(t.data_offset));
+        std::memcpy(&t.palette_offset, entry + 0x34, sizeof(t.palette_offset));
         std::memcpy(&t.total_size, entry + 0x38, sizeof(t.total_size));
+        std::memcpy(&t.palette_size, entry + 0x3C, sizeof(t.palette_size));
         std::memcpy(&t.base_size, entry + 0x40, sizeof(t.base_size));
         std::memcpy(&t.width, entry + 0x44, sizeof(t.width));
         std::memcpy(&t.height, entry + 0x46, sizeof(t.height));
@@ -267,6 +269,15 @@ TpkMetadata BuildMetadata(Reader read,
 
         if (texture_end > out.data_blob_size)
             return TpkMetadata{};
+
+        if (t.palette_size != 0) {
+            const std::uint64_t palette_end =
+                static_cast<std::uint64_t>(t.palette_offset) +
+                t.palette_size;
+
+            if (palette_end > out.data_blob_size)
+                return TpkMetadata{};
+        }
 
         // Retail packs can contain alignment gaps between textures, but
         // texture payloads must not overlap each other.
