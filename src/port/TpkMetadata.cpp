@@ -400,7 +400,7 @@ TpkMetadata ReadTpkMetadataMemory(const void *data_ptr,
 }
 
 void WriteTpkMetadataLog(const char *path, const TpkMetadata &meta) {
-    FILE *f = std::fopen("ux0:data/nfsmw-vita-port-m7.log", "w");
+    FILE *f = std::fopen("ux0:data/nfsmw/logs/tpk-m7.log", "w");
     if (!f)
         return;
 
