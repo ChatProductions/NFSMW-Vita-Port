@@ -1,6 +1,7 @@
 #include "decomp/bCrc32.h"
 #include "port/BundleProbe.h"
 #include "port/JdlzFile.h"
+#include "port/TpkInventory.h"
 #include "port/TpkMetadata.h"
 #include "port/TpkTexture.h"
 
@@ -35,12 +36,21 @@ int main() {
         DecompressJdlzFileToMemory(kGlobalBPath);
 
     BundleProbeResult global_b{};
+    TpkInventory global_b_tpk{};
+
     if (global_b_jdlz.valid) {
         global_b = ProbeNfsmwBundleMemory(
             global_b_jdlz.data,
             global_b_jdlz.decompressed_size);
-        // The probe copies the metadata it needs. Release the 2.8 MB
-        // decompressed bundle before initializing the renderer.
+
+        if (global_b.valid) {
+            global_b_tpk = ScanTpkPacksMemory(
+                global_b_jdlz.data,
+                global_b_jdlz.decompressed_size);
+        }
+
+        // All pages below use copied metadata only. Release the decompressed
+        // 2.8 MB bundle before the renderer/GPU allocations start.
         FreeJdlzMemory(global_b_jdlz);
     }
 
@@ -63,9 +73,10 @@ int main() {
 
     sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 
-    std::size_t selected = 0;
+    std::size_t selected_texture = 0;
+    std::size_t pack_scroll = 0;
     unsigned int previous_buttons = 0;
-    bool show_global_b = false;
+    unsigned int page = 0;
     bool running = true;
 
     while (running) {
@@ -79,15 +90,31 @@ int main() {
             running = false;
 
         if (pressed & SCE_CTRL_TRIANGLE)
-            show_global_b = !show_global_b;
+            page = (page + 1u) % 3u;
 
-        if (!show_global_b && tpk.displayed_textures > 0) {
+        if (page == 0 && tpk.displayed_textures > 0) {
             if (pressed & (SCE_CTRL_RIGHT | SCE_CTRL_RTRIGGER))
-                selected = (selected + 1) % tpk.displayed_textures;
+                selected_texture =
+                    (selected_texture + 1) % tpk.displayed_textures;
 
             if (pressed & (SCE_CTRL_LEFT | SCE_CTRL_LTRIGGER))
-                selected = (selected + tpk.displayed_textures - 1) %
-                           tpk.displayed_textures;
+                selected_texture =
+                    (selected_texture + tpk.displayed_textures - 1) %
+                    tpk.displayed_textures;
+        }
+
+        if (page == 2 && global_b_tpk.displayed_packs > 0) {
+            constexpr std::size_t kRows = 11;
+
+            if (pressed & (SCE_CTRL_DOWN | SCE_CTRL_RTRIGGER)) {
+                if (pack_scroll + kRows < global_b_tpk.displayed_packs)
+                    ++pack_scroll;
+            }
+
+            if (pressed & (SCE_CTRL_UP | SCE_CTRL_LTRIGGER)) {
+                if (pack_scroll > 0)
+                    --pack_scroll;
+            }
         }
 
         vita2d_start_drawing();
@@ -100,12 +127,12 @@ int main() {
         const unsigned int gray = RGBA8(185, 185, 185, 255);
 
         Draw(font, 28, 38, white, 1.0f,
-             "NFSMW Vita Port - Milestone 5");
+             "NFSMW Vita Port - Milestone 6");
 
         char line[192];
 
-        if (!show_global_b) {
-            Draw(font, 720, 38, gray, 0.58f, "Page: GLOBALA textures");
+        if (page == 0) {
+            Draw(font, 720, 38, gray, 0.58f, "1/3 GLOBALA textures");
 
             if (!global_a.found) {
                 Draw(font, 28, 95, amber, 0.88f,
@@ -117,18 +144,21 @@ int main() {
                 Draw(font, 28, 95, red, 0.88f,
                      "No texture metadata found");
             } else {
-                const TpkTextureMetadata &meta = tpk.textures[selected];
+                const TpkTextureMetadata &meta =
+                    tpk.textures[selected_texture];
 
                 char fmt[16];
                 std::snprintf(line, sizeof(line),
                               "%u/%u  %s  %ux%u  %s",
-                              static_cast<unsigned>(selected + 1),
+                              static_cast<unsigned>(selected_texture + 1),
                               static_cast<unsigned>(tpk.displayed_textures),
                               meta.name,
                               static_cast<unsigned>(meta.width),
                               static_cast<unsigned>(meta.height),
                               DescribeTpkFormat(meta.format, fmt, sizeof(fmt)));
-                Draw(font, 28, 76, textures[selected] ? green : red, 0.76f, line);
+                Draw(font, 28, 76,
+                     textures[selected_texture] ? green : red,
+                     0.76f, line);
 
                 std::snprintf(line, sizeof(line),
                               "offset 0x%08X  base %u B  mips %u",
@@ -137,23 +167,27 @@ int main() {
                               static_cast<unsigned>(meta.mip_count));
                 Draw(font, 28, 105, gray, 0.60f, line);
 
-                if (textures[selected]) {
+                if (textures[selected_texture]) {
                     const float max_w = 850.0f;
                     const float max_h = 300.0f;
                     const float sx = max_w / static_cast<float>(meta.width);
                     const float sy = max_h / static_cast<float>(meta.height);
-                    const float scale = std::min(4.0f, std::min(sx, sy));
+                    const float scale =
+                        std::min(4.0f, std::min(sx, sy));
 
                     const float draw_w = meta.width * scale;
                     const float draw_h = meta.height * scale;
                     const float x = (960.0f - draw_w) * 0.5f;
                     const float y = 135.0f + (300.0f - draw_h) * 0.5f;
 
-                    vita2d_draw_texture_scale(textures[selected], x, y, scale, scale);
+                    vita2d_draw_texture_scale(
+                        textures[selected_texture],
+                        x, y, scale, scale);
                 } else {
                     std::snprintf(line, sizeof(line),
                                   "Texture decode failed: %s",
-                                  DescribeTpkTextureLoadResult(load_results[selected]));
+                                  DescribeTpkTextureLoadResult(
+                                      load_results[selected_texture]));
                     Draw(font, 28, 220, red, 0.80f, line);
                 }
 
@@ -164,8 +198,8 @@ int main() {
                               static_cast<unsigned>(tpk.displayed_textures));
                 Draw(font, 28, 468, white, 0.62f, line);
             }
-        } else {
-            Draw(font, 720, 38, gray, 0.58f, "Page: GlobalB JDLZ");
+        } else if (page == 1) {
+            Draw(font, 720, 38, gray, 0.58f, "2/3 GlobalB JDLZ");
 
             if (!global_b_jdlz.found) {
                 Draw(font, 28, 92, amber, 0.85f,
@@ -187,14 +221,14 @@ int main() {
                 Draw(font, 28, 76, green, 0.76f, line);
 
                 Draw(font, 28, 106, gray, 0.58f,
-                     "Decompressed in RAM only (no .raw cache file)");
+                     "Decompressed in RAM only; buffer already released");
 
                 if (!global_b.found || !global_b.valid) {
                     Draw(font, 28, 150, red, 0.82f,
                          "Decompressed GlobalB chunk tree INVALID");
                 } else {
                     std::snprintf(line, sizeof(line),
-                                  "EAGL chunk tree: VALID | %u chunks | %u bytes",
+                                  "EAGL tree VALID | %u chunks | %u bytes",
                                   global_b.parsed_chunks,
                                   global_b.file_size);
                     Draw(font, 28, 145, green, 0.70f, line);
@@ -216,16 +250,68 @@ int main() {
                     }
                 }
             }
+        } else {
+            Draw(font, 720, 38, gray, 0.58f, "3/3 GlobalB TPK index");
+
+            if (!global_b_jdlz.found) {
+                Draw(font, 28, 92, amber, 0.85f,
+                     "GlobalB.lzc not found");
+            } else if (!global_b_jdlz.valid || !global_b.valid) {
+                Draw(font, 28, 92, red, 0.85f,
+                     "GlobalB must decode and validate first");
+            } else if (!global_b_tpk.valid) {
+                std::snprintf(line, sizeof(line),
+                              "TPK inventory failed: %s",
+                              global_b_tpk.error ? global_b_tpk.error : "unknown");
+                Draw(font, 28, 92, red, 0.75f, line);
+            } else {
+                std::snprintf(line, sizeof(line),
+                              "Found %u TPK container(s); showing up to %u",
+                              global_b_tpk.pack_count_total,
+                              static_cast<unsigned>(
+                                  global_b_tpk.displayed_packs));
+                Draw(font, 28, 76, green, 0.72f, line);
+
+                Draw(font, 28, 108, gray, 0.58f,
+                     "name | textures | version | entry type");
+
+                constexpr std::size_t kRows = 11;
+                int y = 142;
+                const std::size_t end =
+                    std::min(global_b_tpk.displayed_packs,
+                             pack_scroll + kRows);
+
+                for (std::size_t i = pack_scroll; i < end; ++i) {
+                    const TpkPackSummary &p = global_b_tpk.packs[i];
+
+                    std::snprintf(line, sizeof(line),
+                                  "%2u. %-28s %4u tex  v%-2u  %s",
+                                  static_cast<unsigned>(i + 1),
+                                  p.name[0] ? p.name : "(unnamed)",
+                                  p.texture_count,
+                                  p.version,
+                                  p.compressed_entries ? "JDLZ entries" : "standard");
+                    Draw(font, 36, y, white, 0.61f, line);
+                    y += 28;
+                }
+
+                if (global_b_tpk.displayed_packs > kRows) {
+                    Draw(font, 28, 470, gray, 0.56f,
+                         "UP/DOWN or L/R: scroll pack list");
+                }
+            }
         }
 
         std::snprintf(line, sizeof(line),
-                      "VishDec CRC %s | GLOBALA %s",
+                      "VishDec CRC %s | GLOBALA %s | GlobalB %s",
                       crc_pass ? "PASS" : "FAIL",
-                      global_a.valid ? "VALID" : "INVALID");
-        Draw(font, 28, 495, crc_pass ? green : red, 0.58f, line);
+                      global_a.valid ? "VALID" : "INVALID",
+                      global_b.valid ? "VALID" :
+                          (global_b_jdlz.found ? "INVALID" : "N/A"));
+        Draw(font, 28, 495, crc_pass ? green : red, 0.56f, line);
 
-        Draw(font, 500, 520, white, 0.60f,
-             "TRIANGLE: page   L/R: texture   START: exit");
+        Draw(font, 490, 520, white, 0.58f,
+             "TRIANGLE: page   L/R: item   START: exit");
 
         vita2d_end_drawing();
         vita2d_swap_buffers();
@@ -251,7 +337,10 @@ int main() {
 
     const bool global_b_ok =
         !global_b_jdlz.found ||
-        (global_b_jdlz.valid && global_b.found && global_b.valid);
+        (global_b_jdlz.valid &&
+         global_b.found &&
+         global_b.valid &&
+         global_b_tpk.valid);
 
     const bool ok = base_ok && global_b_ok;
 
