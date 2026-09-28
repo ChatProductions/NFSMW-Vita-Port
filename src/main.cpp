@@ -39,6 +39,9 @@ int main() {
         global_b = ProbeNfsmwBundleMemory(
             global_b_jdlz.data,
             global_b_jdlz.decompressed_size);
+        // The probe copies the metadata it needs. Release the 2.8 MB
+        // decompressed bundle before initializing the renderer.
+        FreeJdlzMemory(global_b_jdlz);
     }
 
     vita2d_init();
@@ -251,8 +254,6 @@ int main() {
         (global_b_jdlz.valid && global_b.found && global_b.valid);
 
     const bool ok = base_ok && global_b_ok;
-
-    FreeJdlzMemory(global_b_jdlz);
 
     sceKernelExitProcess(ok ? 0 : 1);
     return ok ? 0 : 1;
