@@ -25,6 +25,7 @@ target_compile_options(nfsmw_decomp PRIVATE -Wall -Wextra)
 add_executable(nfsmw_vita_port
   src/main.cpp
   src/port/BundleProbe.cpp
+  src/port/TpkMetadata.cpp
 )
 
 target_include_directories(nfsmw_vita_port PRIVATE include)
@@ -51,6 +52,6 @@ target_link_libraries(nfsmw_vita_port PRIVATE
 vita_create_self(nfsmw_vita_port.self nfsmw_vita_port UNSAFE)
 
 vita_create_vpk(nfsmw_vita_port.vpk "NFMV00001" nfsmw_vita_port.self
-  VERSION "00.02"
-  NAME "NFSMW Vita Port M1"
+  VERSION "00.03"
+  NAME "NFSMW Vita Port M2"
 )
