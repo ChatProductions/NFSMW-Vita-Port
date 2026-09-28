@@ -1,8 +1,9 @@
 #include "decomp/bCrc32.h"
+#include "debugScreen.h"
 
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
-#include <vita2d.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include <cstdio>
 #include <cstring>
@@ -30,49 +31,28 @@ int main() {
 
     write_log(actual, pass);
 
-    vita2d_init();
-    vita2d_set_clear_color(RGBA8(18, 18, 18, 255));
-    vita2d_pgf *font = vita2d_load_default_pgf();
+    psvDebugScreenInit();
+    psvDebugScreenPrintf("NFSMW Vita Port - Milestone 0\n\n");
+    psvDebugScreenPrintf("Original VishDec code running on ARM/Vita\n\n");
+    psvDebugScreenPrintf("Expected CRC: %08X\n", kExpected);
+    psvDebugScreenPrintf("Actual CRC:   %08X\n\n", actual);
+    psvDebugScreenPrintf("Result: %s\n\n", pass ? "PASS" : "FAIL");
+    psvDebugScreenPrintf("Press START to exit\n");
 
     sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
 
     SceCtrlData pad{};
-    do {
+    while (true) {
         sceCtrlPeekBufferPositive(0, &pad, 1);
+        if (pad.buttons & SCE_CTRL_START)
+            break;
+        sceKernelDelayThread(16 * 1000);
+    }
 
-        vita2d_start_drawing();
-        vita2d_clear_screen();
-
-        const unsigned int title = RGBA8(255, 255, 255, 255);
-        const unsigned int status = pass
-            ? RGBA8(80, 220, 120, 255)
-            : RGBA8(240, 80, 80, 255);
-
-        vita2d_pgf_draw_text(font, 48, 80, title, 1.25f,
-                            "NFSMW Vita Port - Milestone 0");
-        vita2d_pgf_draw_text(font, 48, 135, title, 1.0f,
-                            "Original VishDec code running on ARM/Vita");
-
-        char expected[64];
-        char result[64];
-        snprintf(expected, sizeof(expected), "Expected CRC: %08X", kExpected);
-        snprintf(result, sizeof(result), "Actual CRC:   %08X", actual);
-
-        vita2d_pgf_draw_text(font, 48, 205, title, 1.0f, expected);
-        vita2d_pgf_draw_text(font, 48, 245, title, 1.0f, result);
-        vita2d_pgf_draw_text(font, 48, 315, status, 1.4f,
-                            pass ? "PASS" : "FAIL");
-        vita2d_pgf_draw_text(font, 48, 440, title, 0.9f,
-                            "Press START to exit");
-
-        vita2d_end_drawing();
-        vita2d_swap_buffers();
-    } while (!(pad.buttons & SCE_CTRL_START));
-
-    // libvita2d requires GPU shutdown before GPU-backed/font resources
-    // are released. This also waits for pending rendering to finish.
-    vita2d_fini();
-    vita2d_free_pgf(font);
+    // This M0 build deliberately does not initialize SceGxm/libvita2d.
+    // It uses the VitaSDK debug framebuffer only, minimizing GPU involvement.
+    psvDebugScreenFinish();
+    sceKernelDelayThread(100 * 1000);
 
     sceKernelExitProcess(pass ? 0 : 1);
     return pass ? 0 : 1;
