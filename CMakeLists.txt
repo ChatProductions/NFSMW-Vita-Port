@@ -44,7 +44,6 @@ target_link_libraries(nfsmw_vita_port PRIVATE
   ScePgf_stub
   ScePvf_stub
   SceCommonDialog_stub
-  SceSharedFb_stub
   SceAppMgr_stub
 )
 
