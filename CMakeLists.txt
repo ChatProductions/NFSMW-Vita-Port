@@ -29,6 +29,7 @@ add_executable(nfsmw_vita_port
   src/port/TpkTexture.cpp
   src/port/JdlzFile.cpp
   src/port/TpkInventory.cpp
+  src/port/GeometryFile.cpp
 )
 
 target_include_directories(nfsmw_vita_port PRIVATE include)
@@ -55,6 +56,6 @@ target_link_libraries(nfsmw_vita_port PRIVATE
 vita_create_self(nfsmw_vita_port.self nfsmw_vita_port UNSAFE)
 
 vita_create_vpk(nfsmw_vita_port.vpk "NFMV00001" nfsmw_vita_port.self
-  VERSION "00.09"
-  NAME "NFSMW Vita Port M8"
+  VERSION "00.10"
+  NAME "NFSMW Vita Port M9"
 )
