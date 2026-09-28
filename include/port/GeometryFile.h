@@ -43,11 +43,12 @@ struct GeometryMesh {
     char name[64]{};
     char error[128]{};
 
-    std::uint32_t group_fvf[kMaxGroups]{};
+    std::uint32_t vertex_stride = 0;
+    std::uint32_t vertex_data_offset = 0;
+
+    std::uint32_t group_texture_ref[kMaxGroups]{};
     std::uint32_t group_vertex_count[kMaxGroups]{};
     std::uint32_t group_tri_count[kMaxGroups]{};
-    std::uint32_t group_stride[kMaxGroups]{};
-    bool group_stride_inferred[kMaxGroups]{};
 
     std::vector<GeometryVertex> vertices;
     std::vector<std::uint32_t> indices;
