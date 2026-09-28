@@ -24,4 +24,5 @@ struct BundleProbeResult {
 };
 
 BundleProbeResult ProbeNfsmwBundle(const char *path);
+BundleProbeResult ProbeNfsmwBundleMemory(const void *data, std::uint32_t size);
 void WriteBundleProbeLog(const char *path, const BundleProbeResult &result);
