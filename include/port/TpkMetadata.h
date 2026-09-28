@@ -6,8 +6,12 @@
 struct TpkTextureMetadata {
     char name[25];
     std::uint32_t key;
+    std::uint32_t data_offset;
+    std::uint32_t total_size;
+    std::uint32_t base_size;
     std::uint16_t width;
     std::uint16_t height;
+    std::uint16_t mip_count;
     std::uint32_t format;
 };
 
@@ -19,6 +23,8 @@ struct TpkMetadata {
     char pack_name[29];
     char source_path[65];
     std::uint32_t texture_count;
+    std::uint32_t data_blob_offset;
+    std::uint32_t data_blob_size;
     TpkTextureMetadata textures[kMaxTextures];
     std::size_t displayed_textures;
 };
