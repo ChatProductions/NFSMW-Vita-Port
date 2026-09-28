@@ -42,7 +42,7 @@ jobs:
           export VITASDK="$HOME/vitasdk"
           cmake -S . -B build-vita \
             -DCMAKE_TOOLCHAIN_FILE="$VITASDK/share/vita.toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -G Ninja
 
       - name: Build
@@ -51,7 +51,8 @@ jobs:
           export VITASDK="$HOME/vitasdk"
           cmake --build build-vita -j2
           test -f build-vita/nfsmw_vita_port.vpk
-          ls -lh build-vita/nfsmw_vita_port.vpk
+          test -f build-vita/nfsmw_vita_port
+          ls -lh build-vita/nfsmw_vita_port.vpk build-vita/nfsmw_vita_port
 
       - name: Upload VPK
         uses: actions/upload-artifact@v4
@@ -59,3 +60,13 @@ jobs:
           name: NFSMW-Vita-Port-M0
           path: build-vita/nfsmw_vita_port.vpk
           if-no-files-found: error
+
+      - name: Upload exact debug ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: NFSMW-Vita-Port-M0-symbols
+          path: |
+            build-vita/nfsmw_vita_port
+            build-vita/*.velf
+            build-vita/*.map
+          if-no-files-found: warn
