@@ -117,6 +117,7 @@ JdlzFileResult DecompressJdlzFile(const char *input_path,
     std::size_t op = 0;
     std::uint32_t f1 = 1;
     std::uint32_t f2 = 1;
+    result.error = "decompression incomplete";
 
     while (pos < file_size && op < result.decompressed_size) {
         if (f1 == 1) {
