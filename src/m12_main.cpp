@@ -9,6 +9,7 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/threadmgr.h>
 #include <vita2d.h>
 
 #include <algorithm>
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <string>
 #include <utility>
 #include <vector>
