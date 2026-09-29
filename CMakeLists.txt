@@ -31,8 +31,36 @@ target_compile_options(nfsmw_formats PRIVATE -Wall -Wextra)
 
 # Playable Vita runtime imported from the MIT Vish implementation. This is now
 # the application entry point; the old milestone slideshow is deliberately not built.
-file(GLOB_RECURSE NFSMW_RUNTIME_SOURCES CONFIGURE_DEPENDS
-  "${CMAKE_CURRENT_SOURCE_DIR}/runtime/src/*.c"
+set(NFSMW_RUNTIME_SOURCES
+  runtime/src/main.c
+  runtime/src/assets/asset_store.c
+  runtime/src/career/career_store.c
+  runtime/src/career/settings.c
+  runtime/src/world/drive_scene.c
+  runtime/src/world/traffic.c
+  runtime/src/world/free_roam.c
+  runtime/src/world/drive_stream.c
+  runtime/src/world/world_motion.c
+  runtime/src/world/first_race.c
+  runtime/src/world/quick_race.c
+  runtime/src/world/breakable_props.c
+  runtime/src/world/prologue.c
+  runtime/src/render/drive_projection.c
+  runtime/src/platform/vita/gfx_guard.c
+  runtime/src/platform/vita/platform.c
+  runtime/src/render/video_renderer.c
+  runtime/src/render/frontend_scene.c
+  runtime/src/platform/vita/video_player.c
+  runtime/src/platform/vita/splash_audio.c
+  runtime/src/platform/vita/drive_audio.c
+  runtime/src/render/menu_scene.c
+  runtime/src/platform/vita/career_ui.c
+  runtime/src/platform/vita/settings_ui.c
+  runtime/src/platform/vita/quick_race_ui.c
+  runtime/src/render/drive_renderer.c
+  runtime/src/render/drive_hud.c
+  runtime/src/render/world_map.c
+  runtime/src/render/world_textures.c
 )
 
 add_executable(nfsmw_vita_port ${NFSMW_RUNTIME_SOURCES})
@@ -60,7 +88,6 @@ set_property(TARGET nfsmw_vita_port APPEND PROPERTY LINK_DEPENDS
 )
 
 target_link_libraries(nfsmw_vita_port PRIVATE
-  nfsmw_formats
   vita2d
   png
   jpeg
