@@ -12,6 +12,7 @@ extern "C" {
 #include <vita2d.h>
 #include <algorithm>
 #include <cmath>
+#include <cerrno>
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
@@ -67,33 +68,42 @@ int RetailVideoPlay(const char *path) {
     Log("VP6 open: %s", path);
 
     AVFormatContext *fmt = nullptr;
-    if (avformat_open_input(&fmt, path, nullptr, nullptr) < 0) {
-        Log("VP6 avformat_open_input failed: %s", path);
-        return -3;
-    }
-
-    int result = -4;
     AVCodecContext *codec = nullptr;
     AVFrame *frame = nullptr;
     AVPacket *packet = nullptr;
     SwsContext *sws = nullptr;
     vita2d_texture *texture = nullptr;
+    AVStream *stream = nullptr;
+    const AVCodec *decoder = nullptr;
+    int stream_index = -1;
+    int width = 0;
+    int height = 0;
+    int result = -4;
+    double fps = 30.0;
+    unsigned frame_delay_us = 33333;
+    unsigned previous = 0;
+    bool eof = false;
+
+    if (avformat_open_input(&fmt, path, nullptr, nullptr) < 0) {
+        Log("VP6 avformat_open_input failed: %s", path);
+        result = -3;
+        goto cleanup;
+    }
 
     if (avformat_find_stream_info(fmt, nullptr) < 0) {
         Log("VP6 stream info failed");
         goto cleanup;
     }
 
-    const int stream_index =
+    stream_index =
         av_find_best_stream(fmt, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (stream_index < 0) {
         Log("VP6 video stream missing");
         goto cleanup;
     }
 
-    AVStream *stream = fmt->streams[stream_index];
-    const AVCodec *decoder =
-        avcodec_find_decoder(stream->codecpar->codec_id);
+    stream = fmt->streams[stream_index];
+    decoder = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!decoder) {
         Log("VP6 decoder missing codec_id=%d", stream->codecpar->codec_id);
         goto cleanup;
@@ -114,8 +124,8 @@ int RetailVideoPlay(const char *path) {
         goto cleanup;
     }
 
-    const int width = codec->width;
-    const int height = codec->height;
+    width = codec->width;
+    height = codec->height;
     if (width <= 0 || height <= 0 || width > 1280 || height > 720) {
         Log("VP6 dimensions rejected: %dx%d", width, height);
         goto cleanup;
@@ -136,32 +146,31 @@ int RetailVideoPlay(const char *path) {
         goto cleanup;
     }
 
-    AVRational rate = av_guess_frame_rate(fmt, stream, nullptr);
-    double fps = 30.0;
-    if (rate.num > 0 && rate.den > 0) {
-        fps = av_q2d(rate);
-        if (!std::isfinite(fps) || fps < 5.0 || fps > 120.0)
-            fps = 30.0;
+    {
+        AVRational rate = av_guess_frame_rate(fmt, stream, nullptr);
+        if (rate.num > 0 && rate.den > 0) {
+            fps = av_q2d(rate);
+            if (!std::isfinite(fps) || fps < 5.0 || fps > 120.0)
+                fps = 30.0;
+        }
     }
-    const unsigned frame_delay_us =
-        static_cast<unsigned>(1000000.0 / fps);
+    frame_delay_us = static_cast<unsigned>(1000000.0 / fps);
 
     Log("VP6 decoder=%s %dx%d %.2f fps",
         decoder->name ? decoder->name : "?", width, height, fps);
 
-    unsigned previous = 0;
-    bool eof = false;
-    bool skip = false;
-
-    while (!skip) {
+    while (true) {
         int read_rc = av_read_frame(fmt, packet);
         if (read_rc < 0) {
-            eof = true;
-            avcodec_send_packet(codec, nullptr);
-        } else if (packet->stream_index == stream_index) {
-            avcodec_send_packet(codec, packet);
+            if (!eof) {
+                eof = true;
+                avcodec_send_packet(codec, nullptr);
+            }
+        } else {
+            if (packet->stream_index == stream_index)
+                avcodec_send_packet(codec, packet);
+            av_packet_unref(packet);
         }
-        av_packet_unref(packet);
 
         for (;;) {
             const int rc = avcodec_receive_frame(codec, frame);
@@ -177,6 +186,7 @@ int RetailVideoPlay(const char *path) {
                 goto cleanup;
             }
 
+            vita2d_wait_rendering_done();
             auto *dst =
                 static_cast<unsigned char *>(vita2d_texture_get_datap(texture));
             const int stride =
@@ -217,6 +227,7 @@ int RetailVideoPlay(const char *path) {
     }
 
 cleanup:
+    vita2d_wait_rendering_done();
     if (texture) vita2d_free_texture(texture);
     if (sws) sws_freeContext(sws);
     if (packet) av_packet_free(&packet);
