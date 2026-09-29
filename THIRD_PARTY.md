@@ -16,7 +16,11 @@ The function body is kept unchanged for Milestone 0 so the first ARM/Vita test p
 
 ## NFSMW-Vish
 
-Used as a VitaSDK/build-system reference. Milestone 0 does not copy its game-reimplementation modules.
+Milestone 10 imports the MIT-licensed Vita gameplay/runtime implementation under `runtime/vish/` as the executable foundation: platform, input, audio/video, frontend shell, driving loop, streaming shell, HUD, map, traffic, and renderer. Runtime paths are consolidated under `ux0:data/nfsmw`.
+
+This is no longer reference-only use. The local license copy is `third_party/VISH-LICENSE.txt`.
+
+The direct retail-data loaders proven in M0-M8 remain in this repository and will replace Vish's prepared/custom asset inputs subsystem by subsystem.
 
 ## nfsmw-nx
 
