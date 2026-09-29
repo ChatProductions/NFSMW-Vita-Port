@@ -1,0 +1,29 @@
+M11 CI failure log
+
+[1/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj
+FAILED: [code=1] CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj 
+/home/runner/vitasdk/bin/arm-vita-eabi-g++  -I/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/include -Wl,-q -O2 -g -DNDEBUG -std=gnu++17 -Wall -Wextra -MD -MT CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj -MF CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj.d -o CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj -c /home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp: In function 'bool viewp(const M11Vec3&, const M11Vec3&, float, float, float&, float&, float&)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:2: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
+      |  ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
+      |                        ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:69: error: 'isfinite' was not declared in this scope; did you mean 'std::isfinite'?
+   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
+      |                                                                     ^~~~~~~~
+      |                                                                     std::isfinite
+In file included from /home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:11:
+/home/runner/vitasdk/arm-vita-eabi/include/c++/15.2.0/cmath:1149:5: note: 'std::isfinite' declared here
+ 1149 |     isfinite(_Tp)
+      |     ^~~~~~~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp: In function 'int main()':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:113:4: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  113 |    if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;speed=std::max(-7.f,std::min(48.f,speed));
+      |    ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:113:46: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+  113 |    if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;speed=std::max(-7.f,std::min(48.f,speed));
+      |                                              ^~~~~
+[2/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj
+ninja: build stopped: subcommand failed.
