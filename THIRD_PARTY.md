@@ -34,3 +34,16 @@ Milestone 5 adapts the JDLZ decompression algorithm from:
 - Local license copy: `third_party/MWSDK-LICENSE.txt`
 
 The Vita integration adds file I/O, allocation limits, validation, and cache output around the documented JDLZ decoder.
+
+
+## NFSMW-Vish playable runtime
+
+Milestone 10 imports the Vita runtime implementation from:
+
+- Source repository: `ChatProductions/NFSMW-Vish`
+- Upstream: `karlmatvey/NFSMW-Vita-v0.01`
+- Imported areas: `runtime/src`, `runtime/include`, and the Vita linker-gap script
+- License: MIT
+- Local license copy: `third_party/VISH-LICENSE.txt`
+
+The runtime is used as the executable Vita shell while original-data readers and recovered game logic are progressively wired in from MWSDK and NFSMW-VishDec. No commercial game data is stored in this repository.
