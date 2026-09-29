@@ -13,6 +13,7 @@ extern "C" {
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdarg>
 #include <cstring>
 
 namespace {
