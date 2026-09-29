@@ -1,8 +1,5 @@
 name: Build Vita VPK
 
-permissions:
-  contents: write
-
 on:
   push:
     branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette, m10-playable-port, m11-direct-port]
@@ -52,48 +49,23 @@ jobs:
         shell: bash
         run: |
           export VITASDK="$HOME/vitasdk"
-          set -o pipefail
-          {
-            echo "=== AppMgr stub symbols ==="
-            "$VITASDK/bin/arm-vita-eabi-nm" "$VITASDK/arm-vita-eabi/lib/libSceAppMgr_stub.a" 2>&1 | grep -E "SharedFb|Budget" || true
-            echo "=== Matching Vita stubs ==="
-            ls "$VITASDK/arm-vita-eabi/lib/"libSce*AppMgr* "$VITASDK/arm-vita-eabi/lib/"libSce*Shared* 2>&1 || true
-            echo "=== Build ==="
-            cmake --build build-vita -j2
-          } 2>&1 | tee build.log
+          cmake --build build-vita -j2
           test -f build-vita/nfsmw_vita_port.vpk
           test -f build-vita/nfsmw_vita_port
           ls -lh build-vita/nfsmw_vita_port.vpk build-vita/nfsmw_vita_port
 
-      - name: Capture M11 build failure
-        if: failure() && github.ref_name == 'm11-direct-port'
-        shell: bash
-        run: |
-          mkdir -p docs
-          {
-            echo "M11 CI failure log"
-            echo
-            tail -n 160 build.log 2>/dev/null || true
-          } > docs/m11-ci.log
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/m11-ci.log
-          if ! git diff --cached --quiet; then
-            git commit -m "CI capture M11 build failure"
-            git push origin HEAD:m11-direct-port
-          fi
 
       - name: Upload VPK
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M10
+          name: NFSMW-Vita-Port-M11
           path: build-vita/nfsmw_vita_port.vpk
           if-no-files-found: error
 
       - name: Upload exact debug ELF
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M10-symbols
+          name: NFSMW-Vita-Port-M11-symbols
           path: |
             build-vita/nfsmw_vita_port
             build-vita/*.velf
