@@ -1,5 +1,8 @@
 name: Build Vita VPK
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette, m10-playable-port, m11-direct-port]
@@ -49,10 +52,29 @@ jobs:
         shell: bash
         run: |
           export VITASDK="$HOME/vitasdk"
-          cmake --build build-vita -j2
+          set -o pipefail
+          cmake --build build-vita -j2 2>&1 | tee build.log
           test -f build-vita/nfsmw_vita_port.vpk
           test -f build-vita/nfsmw_vita_port
           ls -lh build-vita/nfsmw_vita_port.vpk build-vita/nfsmw_vita_port
+
+      - name: Capture M11 build failure
+        if: failure() && github.ref_name == 'm11-direct-port'
+        shell: bash
+        run: |
+          mkdir -p docs
+          {
+            echo "M11 CI failure log"
+            echo
+            tail -n 160 build.log 2>/dev/null || true
+          } > docs/m11-ci.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/m11-ci.log
+          if ! git diff --cached --quiet; then
+            git commit -m "CI capture M11 build failure"
+            git push origin HEAD:m11-direct-port
+          fi
 
       - name: Upload VPK
         uses: actions/upload-artifact@v4
