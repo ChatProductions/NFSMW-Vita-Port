@@ -13,14 +13,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 
-set(PKG_CONFIG_EXECUTABLE "$ENV{VITASDK}/bin/arm-vita-eabi-pkg-config" CACHE FILEPATH "Vita pkg-config" FORCE)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-  libavformat
-  libavcodec
-  libavutil
-  libswscale
-)
+set(M12_FFMPEG_ROOT "${CMAKE_SOURCE_DIR}/build/deps/ffmpeg-vp6-vita" CACHE PATH "M12 Vita FFmpeg prefix")
+foreach(lib avformat avcodec avutil swscale)
+  if(NOT EXISTS "${M12_FFMPEG_ROOT}/lib/lib${lib}.a")
+    message(FATAL_ERROR "Missing M12 Vita FFmpeg library: ${M12_FFMPEG_ROOT}/lib/lib${lib}.a")
+  endif()
+endforeach()
 
 add_executable(nfsmw_vita_port
   src/m12_main.cpp
@@ -34,18 +32,24 @@ add_executable(nfsmw_vita_port
   src/port/RetailVideo.cpp
 )
 
-target_include_directories(nfsmw_vita_port PRIVATE include)
+target_include_directories(nfsmw_vita_port PRIVATE
+  include
+  "${M12_FFMPEG_ROOT}/include"
+)
 target_compile_options(nfsmw_vita_port PRIVATE -Wall -Wextra)
 
 target_link_libraries(nfsmw_vita_port PRIVATE
-  PkgConfig::FFMPEG
+  "${M12_FFMPEG_ROOT}/lib/libavformat.a"
+  "${M12_FFMPEG_ROOT}/lib/libavcodec.a"
+  "${M12_FFMPEG_ROOT}/lib/libswscale.a"
+  "${M12_FFMPEG_ROOT}/lib/libavutil.a"
   vita2d
   png
   jpeg
   z
   freetype
-  m
   pthread
+  m
   SceTouch_stub
   SceGxm_stub
   SceDisplay_stub
