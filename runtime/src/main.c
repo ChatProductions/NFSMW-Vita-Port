@@ -8,8 +8,10 @@
 #include "settings.h"
 #include "quick_race.h"
 #include "career_ui.h"
+#include "drive_scene.h"
 #include <psp2/ctrl.h>
 #include <psp2/kernel/processmgr.h>
+#include <stdio.h>
 static int intro(void) {
     const char *paths[]={"ux0:data/nfsmw/runtime/media/ea-logo.mp4",
                          "ux0:data/nfsmw/runtime/media/psa.mp4",
@@ -30,7 +32,22 @@ static void status(unsigned presses, int result) {
 int main(void) {
     if (platform_init() < 0) { platform_exit(); return 1; }
     if (renderer_init() < 0) { platform_log("DISPLAY INIT FAILED"); platform_exit(); return 1; }
-    platform_log("NFSMW-Vita 00.43 staged streaming / wall sliding / camera obstruction / rival recovery started");
+    platform_log("NFSMW Vita Port M10 runtime started");
+
+    /* M10 is a game runtime, not another diagnostic browser. If the prepared
+       Rockport runtime cache exists, enter free roam immediately. Frontend
+       remains the fallback for installations that also carry the menu assets. */
+    FILE *drive_probe=fopen("ux0:data/nfsmw/runtime/world/rockport.nfw","rb");
+    if(drive_probe){
+        fclose(drive_probe);
+        platform_log("M10 Rockport data found; booting free roam");
+        (void)drive_run(0);
+        platform_log("M10 free roam closed");
+        renderer_shutdown();
+        platform_exit();
+        return 0;
+    }
+
     GameSettings options;settings_load(SETTINGS_ROOT,&options);settings_apply_audio(&options);
     /* Holding Circle on launch skips playback for recovery. */
     unsigned presses = 0;
