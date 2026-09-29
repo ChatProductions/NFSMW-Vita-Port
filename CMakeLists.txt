@@ -35,6 +35,10 @@ target_link_libraries(nfsmw_vita_port PRIVATE
   SceCtrl_stub
   SceSysmodule_stub
   ScePgf_stub
+  ScePvf_stub
+  SceAppMgr_stub
+  SceCommonDialog_stub
+  SceSharedFb_stub
 )
 
 vita_create_self(nfsmw_vita_port.self nfsmw_vita_port UNSAFE)
