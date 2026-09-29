@@ -2,7 +2,7 @@ name: Build Vita VPK
 
 on:
   push:
-    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette]
+    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette, m10-game-runtime]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -57,14 +57,14 @@ jobs:
       - name: Upload VPK
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M8
+          name: NFSMW-Vita-Port-M10
           path: build-vita/nfsmw_vita_port.vpk
           if-no-files-found: error
 
       - name: Upload exact debug ELF
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M8-symbols
+          name: NFSMW-Vita-Port-M10-symbols
           path: |
             build-vita/nfsmw_vita_port
             build-vita/*.velf
