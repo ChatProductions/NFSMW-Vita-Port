@@ -36,6 +36,11 @@ jobs:
           export VDPM_NONINTERACTIVE=1
           "$VITASDK/bin/vdpm" install libvita2d
 
+      - name: Check runtime preparation tools
+        shell: bash
+        run: |
+          python3 -m py_compile tools/runtime_prep/*.py
+
       - name: Configure
         shell: bash
         run: |
