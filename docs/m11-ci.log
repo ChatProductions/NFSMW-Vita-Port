@@ -81,28 +81,7 @@ In function 'bool {anonymous}::section(FILE*, uint32_t, int, std::vector<I>&)',
       |                            ~~~~~~~^~~~~~~~~~~~~~~~~~~~~
 [4/10] Linking CXX executable nfsmw_vita_port
 FAILED: [code=1] nfsmw_vita_port 
-: && /home/runner/vitasdk/bin/arm-vita-eabi-g++ -Wl,-q -O2 -g -DNDEBUG -Wl,-z,nocopyreloc CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/RawWorld.cpp.obj -o nfsmw_vita_port  -lvita2d  -lpng  -ljpeg  -lz  -lfreetype  -lm  -lSceTouch_stub  -lSceGxm_stub  -lSceDisplay_stub  -lSceCtrl_stub  -lSceSysmodule_stub  -lScePgf_stub && :
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_internal.part.0':
-(.text+0x7f0): undefined reference to `sceSharedFbClose'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0x800): undefined reference to `_sceSharedFbOpen'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0x816): undefined reference to `sceSharedFbGetInfo'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init':
-(.text+0x8c2): undefined reference to `sceAppMgrGetBudgetInfo'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_advanced':
-(.text+0x970): undefined reference to `sceAppMgrGetBudgetInfo'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_advanced_with_msaa':
-(.text+0xa1a): undefined reference to `sceAppMgrGetBudgetInfo'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_fini':
-(.text+0xc6c): undefined reference to `sceSharedFbEnd'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0xc72): undefined reference to `sceSharedFbClose'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0xc7e): undefined reference to `sceSharedFbBegin'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_start_drawing':
-(.text+0xdaa): undefined reference to `sceSharedFbBegin'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_start_drawing_advanced':
-(.text+0xe9a): undefined reference to `sceSharedFbBegin'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_common_dialog_update':
-(.text+0xff2): undefined reference to `sceCommonDialogUpdate'
-/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_swap_buffers':
-(.text+0xcfa): undefined reference to `sceSharedFbEnd'
+: && /home/runner/vitasdk/bin/arm-vita-eabi-g++ -Wl,-q -O2 -g -DNDEBUG -Wl,-z,nocopyreloc CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/RawWorld.cpp.obj -o nfsmw_vita_port  -lvita2d  -lpng  -ljpeg  -lz  -lfreetype  -lm  -lSceTouch_stub  -lSceGxm_stub  -lSceDisplay_stub  -lSceCtrl_stub  -lSceSysmodule_stub  -lScePgf_stub  -lScePvf_stub  -lSceAppMgr_stub  -lSceCommonDialog_stub  -lSceSharedFb_stub && :
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: cannot find -lSceSharedFb_stub: No such file or directory
 collect2: error: ld returned 1 exit status
 ninja: build stopped: subcommand failed.
