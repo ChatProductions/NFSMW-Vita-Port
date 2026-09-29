@@ -1,22 +1,41 @@
 # NFSMW Vita Port
 
-Experimental PlayStation Vita porting project for Need for Speed: Most Wanted (2005).
+Native PlayStation Vita porting workspace for Need for Speed: Most Wanted (2005).
 
-This repository is intentionally separate from the three reference forks:
+## Current direction
 
-- `ChatProductions/NFSMW-Vish`: Vita-specific implementation and VitaSDK reference.
-- `ChatProductions/NFSMW-VishDec`: matching decompilation used as the source of original game logic.
-- `ChatProductions/nfsmw-nx`: Switch recompilation/port used as an engineering and performance reference.
+M10 changes the project from a sequence of standalone asset demonstrations into one playable runtime.
 
-## Milestone 0
+The executable now uses the proven MIT-licensed Vita runtime from **NFSMW-Vish** for the game shell: input, menus, audio/video, driving, world streaming, traffic, HUD, map and Vita rendering. The M0-M8 retail-data work is kept in-tree and continues to build separately so those runtime subsystems can be replaced with loaders for the user's original PC files instead of prepared intermediate assets.
 
-The first milestone is deliberately small:
+The three reference projects have distinct roles:
 
-1. Build a clean VitaSDK VPK.
-2. Compile a genuinely original, platform-independent NFSMW routine from VishDec for ARM.
-3. Execute it on the Vita.
-4. Show PASS/FAIL on screen and exit cleanly.
+- **NFSMW-Vish**: Vita platform and playable runtime foundation.
+- **NFSMW-VishDec**: recovered original NFSMW game logic and structures, integrated where portable/available.
+- **nfsmw-nx**: architecture and performance reference only; GPL source is not copied into this project.
 
-The initial routine is `bCalculateCrc32` from the original bWare layer. It has no platform dependencies, making it a useful first proof that recovered NFSMW code can compile and execute inside a native Vita application.
+MWSDK/MWEncyclopedia are used to cross-check original PC data formats.
 
-No original game assets are stored in this repository.
+## Data layout
+
+Runtime data and logs are consolidated under:
+
+```text
+ux0:data/nfsmw/
+```
+
+The original PC installation contains the source assets the direct loaders are targeting, including `GLOBAL`, `CARS`, `TRACKS`, `FRONTEND`, `LANGUAGES`, movies and audio.
+
+No commercial game assets are stored in this repository.
+
+## Proven direct-original support
+
+Before the M10 runtime pivot, hardware validation established:
+
+- EAGL/bChunk parsing
+- JDLZ decompression in memory
+- TPK inventory and metadata
+- ARGB32, DXT1, DXT3, DXT5 decoding
+- P8 palette recovery and rendering from the retail data
+
+Those are now infrastructure for the playable port, not separate end-user viewer milestones.
