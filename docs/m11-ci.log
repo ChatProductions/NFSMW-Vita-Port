@@ -1,29 +1,108 @@
 M11 CI failure log
 
-[1/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj
-FAILED: [code=1] CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj 
-/home/runner/vitasdk/bin/arm-vita-eabi-g++  -I/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/include -Wl,-q -O2 -g -DNDEBUG -std=gnu++17 -Wall -Wextra -MD -MT CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj -MF CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj.d -o CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj -c /home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp: In function 'bool viewp(const M11Vec3&, const M11Vec3&, float, float, float&, float&, float&)':
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:2: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
-   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
+[1/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj
+[2/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj
+[3/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/port/RawWorld.cpp.obj
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp: In function 'bool {anonymous}::ch(FILE*, uint32_t, uint32_t, C&)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:23:2: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   23 |  if(e>z||e<=o)return false;c.e=(uint32_t)e;return true;
       |  ^~
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
-   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
-      |                        ^~
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:70:69: error: 'isfinite' was not declared in this scope; did you mean 'std::isfinite'?
-   70 |  if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
-      |                                                                     ^~~~~~~~
-      |                                                                     std::isfinite
-In file included from /home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:11:
-/home/runner/vitasdk/arm-vita-eabi/include/c++/15.2.0/cmath:1149:5: note: 'std::isfinite' declared here
- 1149 |     isfinite(_Tp)
-      |     ^~~~~~~~
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp: In function 'int main()':
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:113:4: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
-  113 |    if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;speed=std::max(-7.f,std::min(48.f,speed));
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:23:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   23 |  if(e>z||e<=o)return false;c.e=(uint32_t)e;return true;
+      |                            ^
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp: In function 'bool {anonymous}::leaves(FILE*, uint32_t, uint32_t, std::vector<L>&, int)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:26:2: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   26 |  if(d>12)return false;for(uint32_t p=a;p<z;){C c;if(!ch(f,p,z,c))return false;
+      |  ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:26:23: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   26 |  if(d>12)return false;for(uint32_t p=a;p<z;){C c;if(!ch(f,p,z,c))return false;
+      |                       ^~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp: In function 'bool {anonymous}::section(FILE*, uint32_t, int, std::vector<I>&)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:39:5: warning: this 'else' clause does not guard... [-Wmisleading-indentation]
+   39 |     else if(c.id==0x34102){ia=c.p;iz=c.e;}else if(c.id==0x34103){xa=c.p;xz=c.e;}q=c.e;
+      |     ^~~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:39:81: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'else'
+   39 |     else if(c.id==0x34102){ia=c.p;iz=c.e;}else if(c.id==0x34103){xa=c.p;xz=c.e;}q=c.e;
+      |                                                                                 ^
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:42:5: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   42 |     if(!ia||!xa||(iz-ia)%72)return false;size_t ni=(iz-ia)/72;struct Info{char n[25];uint32_t k;};
+      |     ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:42:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   42 |     if(!ia||!xa||(iz-ia)%72)return false;size_t ni=(iz-ia)/72;struct Info{char n[25];uint32_t k;};
+      |                                          ^~~~~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:48:6: warning: this 'for' clause does not guard... [-Wmisleading-indentation]
+   48 |      for(int k=0;k<9;k++)a.r[k]=i16(x+44+k*2)/8192.f;out.push_back(a);
+      |      ^~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:48:54: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'for'
+   48 |      for(int k=0;k<9;k++)a.r[k]=i16(x+44+k*2)/8192.f;out.push_back(a);
+      |                                                      ^~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp: In function 'bool {anonymous}::identity(FILE*, const C&, uint32_t&, char*)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:57:3: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   57 |   if(!rd(f,s,b,n)||b[12]!=0x16)return false;key=u32(b+16);name24(name,b+160,n-160);return true;
+      |   ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:57:45: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   57 |   if(!rd(f,s,b,n)||b[12]!=0x16)return false;key=u32(b+16);name24(name,b+160,n-160);return true;
+      |                                             ^~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp: In function 'bool {anonymous}::solid(FILE*, const C&, const I&, M11World&)':
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:83:2: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   83 |  if(key!=i.key)return true;if(!ma.p||!ix.p||vb.empty())return false;
+      |  ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:83:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   83 |  if(key!=i.key)return true;if(!ma.p||!ix.p||vb.empty())return false;
+      |                            ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:90:3: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   90 |   if(stride!=24&&stride!=36&&stride!=44&&stride!=60)return false;vv[s].resize(cnt[s]);
+      |   ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:90:66: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   90 |   if(stride!=24&&stride!=36&&stride!=44&&stride!=60)return false;vv[s].resize(cnt[s]);
+      |                                                                  ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:95:4: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   95 |    if(id[0]>=vv[a.s].size()||id[1]>=vv[a.s].size()||id[2]>=vv[a.s].size())return false;M11Triangle t{};
       |    ^~
-/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/m11_main.cpp:113:46: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
-  113 |    if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;speed=std::max(-7.f,std::min(48.f,speed));
-      |                                              ^~~~~
-[2/10] Building CXX object CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:95:88: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   95 |    if(id[0]>=vv[a.s].size()||id[1]>=vv[a.s].size()||id[2]>=vv[a.s].size())return false;M11Triangle t{};
+      |                                                                                        ^~~~~~~~~~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:96:4: warning: this 'for' clause does not guard... [-Wmisleading-indentation]
+   96 |    for(int j=0;j<3;j++)t.p[j]=xf(vv[a.s][id[j]],i);float nx,ny,nz,mg=norm(t,nx,ny,nz);if(mg<.001f)continue;t.color=col(nm,nx,ny,nz,mg);
+      |    ^~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:96:52: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'for'
+   96 |    for(int j=0;j<3;j++)t.p[j]=xf(vv[a.s][id[j]],i);float nx,ny,nz,mg=norm(t,nx,ny,nz);if(mg<.001f)continue;t.color=col(nm,nx,ny,nz,mg);
+      |                                                    ^~~~~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:97:4: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+   97 |    if(w.world.size()>=36000)return false;w.world.push_back(t);if(road&&fabsf(nz)/mg>.8f){if(w.road.size()>=8000)return false;w.road.push_back(t);}
+      |    ^~
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:97:42: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   97 |    if(w.world.size()>=36000)return false;w.world.push_back(t);if(road&&fabsf(nz)/mg>.8f){if(w.road.size()>=8000)return false;w.road.push_back(t);}
+      |                                          ^
+In function 'bool {anonymous}::section(FILE*, uint32_t, int, std::vector<I>&)',
+    inlined from 'M11World LoadM11RockportSection(const char*, int)' at /home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:105:30:
+/home/runner/work/NFSMW-Vita-Port/NFSMW-Vita-Port/src/port/RawWorld.cpp:47:35: warning: 'char* strncpy(char*, const char*, size_t)' output may be truncated copying 24 bytes from a string of length 24 [-Wstringop-truncation]
+   47 |      I a{};a.key=info[j].k;strncpy(a.name,info[j].n,24);a.p={f32(x+32),f32(x+36),f32(x+40)};
+      |                            ~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+[4/10] Linking CXX executable nfsmw_vita_port
+FAILED: [code=1] nfsmw_vita_port 
+: && /home/runner/vitasdk/bin/arm-vita-eabi-g++ -Wl,-q -O2 -g -DNDEBUG -Wl,-z,nocopyreloc CMakeFiles/nfsmw_vita_port.dir/src/m11_main.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/GeometryFile.cpp.obj CMakeFiles/nfsmw_vita_port.dir/src/port/RawWorld.cpp.obj -o nfsmw_vita_port  -lvita2d  -lpng  -ljpeg  -lz  -lfreetype  -lm  -lSceTouch_stub  -lSceGxm_stub  -lSceDisplay_stub  -lSceCtrl_stub  -lSceSysmodule_stub  -lScePgf_stub && :
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_internal.part.0':
+(.text+0x7f0): undefined reference to `sceSharedFbClose'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0x800): undefined reference to `_sceSharedFbOpen'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0x816): undefined reference to `sceSharedFbGetInfo'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init':
+(.text+0x8c2): undefined reference to `sceAppMgrGetBudgetInfo'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_advanced':
+(.text+0x970): undefined reference to `sceAppMgrGetBudgetInfo'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_init_advanced_with_msaa':
+(.text+0xa1a): undefined reference to `sceAppMgrGetBudgetInfo'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_fini':
+(.text+0xc6c): undefined reference to `sceSharedFbEnd'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0xc72): undefined reference to `sceSharedFbClose'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: (.text+0xc7e): undefined reference to `sceSharedFbBegin'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_start_drawing':
+(.text+0xdaa): undefined reference to `sceSharedFbBegin'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_start_drawing_advanced':
+(.text+0xe9a): undefined reference to `sceSharedFbBegin'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_common_dialog_update':
+(.text+0xff2): undefined reference to `sceCommonDialogUpdate'
+/home/runner/vitasdk/arm-vita-eabi/bin/ld: /home/runner/vitasdk/bin/../lib/gcc/arm-vita-eabi/15.2.0/../../../../arm-vita-eabi/lib/libvita2d.a(vita2d.o): in function `vita2d_swap_buffers':
+(.text+0xcfa): undefined reference to `sceSharedFbEnd'
+collect2: error: ld returned 1 exit status
 ninja: build stopped: subcommand failed.
