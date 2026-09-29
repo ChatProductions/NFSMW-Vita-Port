@@ -6,6 +6,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <vita2d.h>
 #include <algorithm>
+#include <cstdarg>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
