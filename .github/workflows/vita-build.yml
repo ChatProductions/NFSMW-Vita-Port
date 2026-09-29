@@ -18,7 +18,7 @@ jobs:
       - name: Install host build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build curl
+          sudo apt-get install -y cmake ninja-build curl xz-utils make
 
       - name: Bootstrap VitaSDK
         shell: bash
@@ -34,15 +34,15 @@ jobs:
         run: |
           export VITASDK="$HOME/vitasdk"
           export VDPM_NONINTERACTIVE=1
-          "$VITASDK/bin/vdpm" install libvita2d ffmpeg
+          "$VITASDK/bin/vdpm" install libvita2d
 
-      - name: Verify VP6 decoder
+      - name: Build M12 VP6 decoder
         shell: bash
         run: |
           export VITASDK="$HOME/vitasdk"
-          "$VITASDK/bin/arm-vita-eabi-pkg-config" --modversion libavcodec
-          test -f "$VITASDK/arm-vita-eabi/lib/libavcodec.a"
-          "$VITASDK/bin/arm-vita-eabi-nm" "$VITASDK/arm-vita-eabi/lib/libavcodec.a" | grep -q "ff_vp6_decoder"
+          chmod +x tools/build_ffmpeg_vp6_vita.sh
+          tools/build_ffmpeg_vp6_vita.sh
+          "$VITASDK/bin/arm-vita-eabi-nm" build/deps/ffmpeg-vp6-vita/lib/libavcodec.a | grep -q "ff_vp6_decoder"
 
       - name: Configure
         shell: bash
