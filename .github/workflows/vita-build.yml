@@ -2,7 +2,7 @@ name: Build Vita VPK
 
 on:
   push:
-    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette, m10-playable-port, m11-direct-port]
+    branches: [main, m0-decomp-smoke-test, m1-real-bundle-probe, m2-tpk-metadata, m3-render-mw-logo, m4-texture-viewer, m5-jdlz-globalb, m6-globalb-tpk-index, m7-globalb-texture-browser, m8-p8-palette, m10-playable-port, m11-direct-port, m12-retail-frontend]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,7 +34,15 @@ jobs:
         run: |
           export VITASDK="$HOME/vitasdk"
           export VDPM_NONINTERACTIVE=1
-          "$VITASDK/bin/vdpm" install libvita2d
+          "$VITASDK/bin/vdpm" install libvita2d ffmpeg
+
+      - name: Verify VP6 decoder
+        shell: bash
+        run: |
+          export VITASDK="$HOME/vitasdk"
+          "$VITASDK/bin/arm-vita-eabi-pkg-config" --modversion libavcodec
+          test -f "$VITASDK/arm-vita-eabi/lib/libavcodec.a"
+          "$VITASDK/bin/arm-vita-eabi-nm" "$VITASDK/arm-vita-eabi/lib/libavcodec.a" | grep -q "ff_vp6_decoder"
 
       - name: Configure
         shell: bash
@@ -58,14 +66,14 @@ jobs:
       - name: Upload VPK
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M11
+          name: NFSMW-Vita-Port-M12
           path: build-vita/nfsmw_vita_port.vpk
           if-no-files-found: error
 
       - name: Upload exact debug ELF
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMW-Vita-Port-M11-symbols
+          name: NFSMW-Vita-Port-M12-symbols
           path: |
             build-vita/nfsmw_vita_port
             build-vita/*.velf
