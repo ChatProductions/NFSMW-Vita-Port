@@ -67,7 +67,9 @@ static CarMesh load_car(){
 static bool viewp(const M11Vec3&p,const M11Vec3&cam,float yaw,float pitch,float&sx,float&sy,float&z){
  float dx=p.x-cam.x,dy=p.y-cam.y,dz=p.z-cam.z,cs=cosf(yaw),sn=sinf(yaw),cp=cosf(pitch),sp=sinf(pitch);
  float x=dx*cs-dy*sn,d=dx*sn+dy*cs,y=d*sp+dz*cp;z=d*cp-dz*sp;
- if(z<.5f)return false;sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;return isfinite(sx)&&isfinite(sy);
+ if(z<.5f)return false;
+ sx=480.f+x*520.f/z;sy=272.f-y*520.f/z;
+ return std::isfinite(sx)&&std::isfinite(sy);
 }
 static void add_tri(std::vector<DTri>&out,const M11Triangle&t,const M11Vec3&cam,float yaw,float pitch,float maxd){
  float cx=(t.p[0].x+t.p[1].x+t.p[2].x)/3,cy=(t.p[0].y+t.p[1].y+t.p[2].y)/3;
@@ -110,7 +112,8 @@ int main(){
    uint64_t now=sceKernelGetProcessTimeWide();float dt=(now-last)/1000000.f;last=now;if(dt>.05f)dt=.05f;
    float steer=((int)p.lx-128)/127.f;if(fabsf(steer)<.18f)steer=0;if(p.buttons&SCE_CTRL_LEFT)steer=-1;if(p.buttons&SCE_CTRL_RIGHT)steer=1;
    if(p.buttons&SCE_CTRL_CROSS)speed+=18*dt;else speed*=powf(.55f,dt);
-   if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;speed=std::max(-7.f,std::min(48.f,speed));
+   if(p.buttons&SCE_CTRL_SQUARE)speed-=25*dt;
+   speed=std::max(-7.f,std::min(48.f,speed));
    yaw+=steer*speed*.035f*dt;float nx=player.x+sinf(yaw)*speed*dt,ny=player.y+cosf(yaw)*speed*dt,nz;
    if(M11Ground(world,nx,ny,player.z,&nz)){player={nx,ny,nz};}else speed*=.2f;
    float pitch=.22f;M11Vec3 cam{player.x-sinf(yaw)*9.f,player.y-cosf(yaw)*9.f,player.z+3.2f};
