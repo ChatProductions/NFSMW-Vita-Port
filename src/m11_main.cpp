@@ -1,6 +1,7 @@
 #include "port/GeometryFile.h"
 #include "port/RawWorld.h"
 #include <psp2/ctrl.h>
+#include <psp2/gxm.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
@@ -11,8 +12,8 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <utility>
 
-static const char *ROOT="ux0:data/nfsmw/";
 static const char *STREAM="ux0:data/nfsmw/TRACKS/STREAML2RA.BUN";
 static const char *L2RA="ux0:data/nfsmw/TRACKS/L2RA.BUN";
 static const char *CAR_GEO="ux0:data/nfsmw/CARS/COBALTSS/GEOMETRY.BIN";
